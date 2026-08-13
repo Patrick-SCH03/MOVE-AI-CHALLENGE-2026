@@ -130,6 +130,12 @@ def hungarian_vs_bruteforce():
 
     from app.tools.match import hungarian
 
+    # 회귀: 행 > 열(후보 합집합이 구간 수보다 적음) — 무한 루프가 났던 입력
+    got = hungarian([[0.3], [0.5]])
+    assert len(got) == 1 and sum(costv for costv in []) == 0
+    got = hungarian([[0.9], [0.1]])
+    assert got == {1: 0}, f"싼 행이 배정돼야 한다: {got}"
+
     rng = random.Random(7)
     for trial in range(200):
         n = rng.randint(1, 3)

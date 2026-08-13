@@ -35,22 +35,36 @@ def _bearing(a: tuple, b: tuple) -> float:
     return math.atan2(b[1] - a[1], b[0] - a[0])
 
 
-def _gates(c: Carrier, q: LegQuery) -> tuple[float, float] | None:
+# 운반자 정적값(방위·직행거리·활동 분)을 한 번만 계산해 둔다 —
+# 편성마다 380명 전수 기하 계산을 반복하면 경로 탐색이 수 초, 시드 생성이 수 분 걸린다
+_STATIC: dict[str, tuple[float, float, int, int]] = {}
+
+
+def _static(c: Carrier) -> tuple[float, float, int, int]:
+    got = _STATIC.get(c.id)
+    if got is None:
+        got = (_bearing(c.route_from, c.route_to),
+               haversine_km(c.route_from, c.route_to),
+               to_min(c.active_from), to_min(c.active_to))
+        _STATIC[c.id] = got
+    return got
+
+
+def _gates(c: Carrier, q: LegQuery, q_bearing: float, q_km: float) -> tuple[float, float] | None:
     """게이트 셋: 활동 시간대 / 동선 방향 / 우회 3km 이하. 통과하면 (우회, 방향합)."""
+    ca, direct, a_from, a_to = _static(c)
     # 활동 시간대 안인가 — 시작과 마감이 모두 창 안이어야 한다
-    if not (to_min(c.active_from) <= q.start_min and q.end_min <= to_min(c.active_to)):
+    if not (a_from <= q.start_min and q.end_min <= a_to):
         return None
     # 동선 방향이 맞는가 — 반대로 가는 사람에게 얹으면 배송이 아니라 심부름이다
-    ca, qa = _bearing(c.route_from, c.route_to), _bearing(q.from_pt, q.to_pt)
-    cos_sim = math.cos(ca - qa)
+    cos_sim = math.cos(ca - q_bearing)
     if cos_sim <= 0:
         return None
     # 우회 부담 — 원래 동선 대비 늘어나는 거리
-    direct = haversine_km(c.route_from, c.route_to)
     via = (haversine_km(c.route_from, q.from_pt)
-           + haversine_km(q.from_pt, q.to_pt)
+           + q_km
            + haversine_km(q.to_pt, c.route_to))
-    detour = max(0.0, via - direct - haversine_km(q.from_pt, q.to_pt))
+    detour = max(0.0, via - direct - q_km)
     if detour > MAX_DETOUR_KM:
         return None
     return detour, cos_sim
@@ -59,15 +73,16 @@ def _gates(c: Carrier, q: LegQuery) -> tuple[float, float] | None:
 def rank(q: LegQuery) -> list[Candidate]:
     """게이트 통과자를 점수 내림차순으로. 점수 = 중첩도·시간대·방향·신뢰도·우회의 가중합."""
     leg_km = haversine_km(q.from_pt, q.to_pt)
+    q_bearing = _bearing(q.from_pt, q.to_pt)
     out: list[Candidate] = []
     for c in CARRIERS:
-        gate = _gates(c, q)
+        gate = _gates(c, q, q_bearing, leg_km)
         if gate is None:
             continue
         detour, cos_sim = gate
         overlap = leg_km / (leg_km + detour) if leg_km > 0 else 0.0
         # 시간대 여유 — 마감 후에도 활동이 남아 있을수록 안정적이다
-        margin = (to_min(c.active_to) - q.end_min) / 120.0
+        margin = (_static(c)[3] - q.end_min) / 120.0
         score = (0.35 * overlap
                  + 0.15 * min(1.0, margin)
                  + 0.15 * cos_sim
@@ -81,13 +96,21 @@ def rank(q: LegQuery) -> list[Candidate]:
 
 
 def hungarian(cost: list[list[float]]) -> dict[int, int]:
-    """할당 문제 최소화 (행 ≤ 열). 반환: {행: 열}.
+    """할당 문제 최소화. 반환: {행: 열}.
 
     포텐셜 기반 O(n²m) — e-maxx 정식화. SciPy linear_sum_assignment 대체.
+    알고리즘은 행 ≤ 열을 전제하므로 열이 모자라면 더미 열을 패딩한다 —
+    두 구간의 후보 합집합이 1명뿐인 입력(2×1)에서 증강 경로를 영원히 찾는
+    무한 루프가 실제로 났다. 더미 열에 배정된 행은 결과에서 뺀다.
     """
     n, m = len(cost), len(cost[0]) if cost else 0
     if n == 0 or m == 0:
         return {}
+    real_m = m
+    if m < n:
+        pad = max(1.0, max(max(row) for row in cost)) * 10 + 1
+        cost = [row + [pad] * (n - m) for row in cost]
+        m = n
     INF = float("inf")
     u = [0.0] * (n + 1)
     v = [0.0] * (m + 1)
@@ -122,7 +145,8 @@ def hungarian(cost: list[list[float]]) -> dict[int, int]:
             j1 = way[j0]
             p[j0] = p[j1]
             j0 = j1
-    return {p[j] - 1: j - 1 for j in range(1, m + 1) if p[j]}
+    # 더미 열(패딩)에 배정된 행은 미배정으로 취급한다
+    return {p[j] - 1: j - 1 for j in range(1, m + 1) if p[j] and j - 1 < real_m}
 
 
 def assign(queries: dict[int, LegQuery]) -> dict[int, list[Candidate]]:
