@@ -138,6 +138,9 @@ def _evaluate(train: tago.Train, dep_st: Station, arr_st: Station,
                    combined, adjusted, eta_min, slack)
 
 
+MAX_TRAINS_PER_PAIR = 8   # 페어당 평가 편성 상한 — 없으면 시드 250건 생성이 수 분 걸린다
+
+
 def _options(o_pt, d_pt, deadline_min, now_min, force) -> tuple[list[_Option], bool]:
     """평가 가능한 모든 편성 계획. 두 번째 값은 '시간표를 받긴 했는가'."""
     today = today_yyyymmdd()
@@ -147,8 +150,17 @@ def _options(o_pt, d_pt, deadline_min, now_min, force) -> tuple[list[_Option], b
         for arr_st in _near_stations(d_pt):
             if dep_st.code == arr_st.code:
                 continue
-            for tr in tago.trains_between(dep_st.code, arr_st.code, today):
+            trains = tago.trains_between(dep_st.code, arr_st.code, today)
+            if trains:
                 got_any = True
+            # 시각으로 미리 거르고(싼 계산), 남으면 늦게 출발하는 순으로 상한을 건다 —
+            # 늦은 편성이 ①예산이 커 대체로 유리하고, 이른 편성도 2개는 남겨 비교한다
+            viable = [t for t in trains
+                      if to_min(t.dep_time) - DESK_CUTOFF_MIN - now_min >= probability.MIN_LEG_MIN
+                      and deadline_min - to_min(t.arr_time) >= probability.MIN_LEG_MIN]
+            if len(viable) > MAX_TRAINS_PER_PAIR:
+                viable = viable[:2] + viable[-(MAX_TRAINS_PER_PAIR - 2):]
+            for tr in viable:
                 opt = _evaluate(tr, dep_st, arr_st, o_pt, d_pt, deadline_min, now_min, force)
                 if opt:
                     opts.append(opt)
@@ -174,7 +186,8 @@ def _suggestions(o_pt, d_pt, now_min, force, count=3) -> list[dict]:
 
 
 def build(origin: str, destination: str, deadline: str,
-          now: str | None = None, force_carriers: dict | None = None) -> dict:
+          now: str | None = None, force_carriers: dict | None = None,
+          with_suggestions: bool = True) -> dict:
     force = force_carriers or {}
     now_min = try_min(now) if now else service_now()
     if now_min is None:
@@ -205,7 +218,7 @@ def build(origin: str, destination: str, deadline: str,
             reason = ("오늘 시간표를 받지 못했어요. 공공데이터 연동 상태를 확인해 주세요."
                       if st != "ready" else "오늘 운행하는 KTX 편성이 없어요.")
             return {"feasible": False, "reason": reason, "tago_state": st}
-        sugg = _suggestions(o_pt, d_pt, now_min, force)
+        sugg = _suggestions(o_pt, d_pt, now_min, force) if with_suggestions else []
         if sugg:
             times = " · ".join(s["deadline"] for s in sugg)
             reason = f"{deadline}까지는 어려워요. {times}까지로 잡으시면 보낼 수 있어요."
