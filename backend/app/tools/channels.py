@@ -11,7 +11,6 @@ from .. import tago
 from ..clock import to_hhmm, to_min, today_yyyymmdd
 from ..seed import tariff
 from . import probability
-from .probability import LegInput
 
 # ── 채널 추가분과 배분 — 합계가 다르면 import 가 실패한다 ──────────────
 # 숫자가 두 곳에 있으면 조용히 어긋난다. 여기 한 곳뿐이다.

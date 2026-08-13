@@ -7,7 +7,6 @@ GEMINI_API_KEY 가 없어도 동작이 같다.
 import json
 import os
 import re
-import time
 
 from ..clock import to_hhmm
 from ..seed.places import PLACES

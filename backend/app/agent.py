@@ -9,8 +9,8 @@ AI-4 자연어 접수 → AI-5 규정 판정 → AI-2 경로·매칭 → AI-3 �
 """
 import time
 
-from .clock import service_now, to_hhmm, today_yyyymmdd, try_min
 from . import tago
+from .clock import service_now, to_hhmm, today_yyyymmdd, try_min
 from .tools import channels as channels_tool
 from .tools import parse as parse_tool
 from .tools import route as route_tool
