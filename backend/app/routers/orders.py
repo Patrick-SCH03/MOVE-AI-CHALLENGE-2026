@@ -115,9 +115,14 @@ def create_order(body: OrderCreate):
 def list_orders():
     with Session(engine) as s:
         orders = s.exec(select(Order).order_by(Order.created_at.desc())).all()
+        # 표시 필드는 상세와 같은 이름으로 — 목록에서 빠지면 내역 화면의
+        # 상태 칩·운임이 빈 채로 그려진다 (실제로 그랬다)
         return {"orders": [{
             "id": o.id, "origin": o.origin, "destination": o.destination,
             "item": o.item, "status": o.status, "channel": o.channel,
+            "status_label": STATUS_LABELS.get(o.status, o.status),
+            "product": CHANNEL_LABELS.get(o.channel, o.channel),
+            "fare": o.fare, "recipient_name": o.recipient_name,
             "eta": o.eta, "deadline": o.deadline, "probability": o.probability,
             "created_at": o.created_at.isoformat() if o.created_at else None,
         } for o in orders]}
