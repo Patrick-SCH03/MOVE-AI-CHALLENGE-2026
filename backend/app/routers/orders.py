@@ -60,8 +60,12 @@ def _order_payload(s: Session, order: Order) -> dict:
             "cancelled_reason": order.cancelled_reason or "이용자 요청",
             "consents": {"notice": order.notice_consent, "recipient": order.recipient_consent,
                          "relay": order.relay_consent},
+            # accepted 는 이름 문자열이 아니라 {seq, carrier_name} — 화면이 "①구간
+            # 조민재 님이 수락했어요"를 만들려면 구간 번호가 함께 와야 한다
+            # (문자열로 보냈더니 "③구간 님이"로만 두 줄 뜨는 사고가 실제로 났다)
             "dispatch": {"ringing": ringing,
-                         "accepted": [c.carrier_name for c in calls if c.status == "ACCEPTED"],
+                         "accepted": [{"id": c.id, "seq": c.seq, "carrier_name": c.carrier_name}
+                                      for c in calls if c.status == "ACCEPTED"],
                          "attempts": len(calls)},
         },
         "legs": [{
