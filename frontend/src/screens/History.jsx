@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { api, pct, won } from "../api";
+import { ampm, api, pct, won } from "../api";
 import { Chip, Spinner } from "../components/Primitives";
 
 /* 접수 내역
@@ -119,7 +119,7 @@ export default function History({ onOpen, onReorder }) {
             <div className="tnum mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-line pt-2.5 text-[12px] text-g500">
               <span>{r.product}</span>
               <span>도착 {r.eta}</span>
-              <span>데드라인 {r.deadline}</span>
+              <span>도착 기한 {ampm(r.deadline)} 까지</span>
               {r.status !== "CANCELLED" && <span>확률 {pct(r.probability)}</span>}
               {r.recipient_name && <span>받는 분 {r.recipient_name}</span>}
             </div>

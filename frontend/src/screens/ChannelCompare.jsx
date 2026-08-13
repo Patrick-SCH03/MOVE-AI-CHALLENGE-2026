@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { api, won } from "../api";
+import { ampm, api, won } from "../api";
 import { Chip, Stat } from "../components/Primitives";
 import RelayRoute from "../components/RelayRoute";
 import CarrierSwap from "../components/CarrierSwap";
@@ -286,7 +286,7 @@ export default function ChannelCompare({
           {intake?.origin} → {intake?.destination} · {intake?.item} 1개
         </p>
         <h2 className="mt-1.5 text-[24px] font-bold leading-[1.35] tracking-[-0.03em] text-ink">
-          오늘 {intake?.deadline}까지
+          오늘 {ampm(intake?.deadline)} 까지
           <br />
           도착하려면
         </h2>

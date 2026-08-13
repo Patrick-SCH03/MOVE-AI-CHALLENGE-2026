@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
-import { api, pct, won } from "../api";
+import { ampm, api, pct, won } from "../api";
 import korailLogo from "../assets/korail-logo.svg";
 import { Button, Chip, Spinner } from "../components/Primitives";
 import { useToast } from "../components/Toast";
@@ -419,8 +419,10 @@ export default function Progress({ orderId, onCancelled }) {
             </p>
           </div>
           <div>
-            <p className="text-[12px] text-g500">데드라인</p>
-            <p className="tnum mt-0.5 text-[15px] font-bold text-ink">{o.deadline}</p>
+            <p className="text-[12px] text-g500">도착 기한</p>
+            {/* 홈 폼의 시간 입력(오후 7:00)과 같은 표기 — 화면마다 24시간제가
+                섞이면 같은 시각이 다른 값처럼 읽힌다 */}
+            <p className="tnum mt-0.5 text-[15px] font-bold text-ink">{ampm(o.deadline)} 까지</p>
           </div>
           <div>
             <p className="text-[12px] text-g500">운임</p>
