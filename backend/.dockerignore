@@ -1,0 +1,9 @@
+# .env 를 빼는 것이 핵심 — 넣으면 키가 이미지 레이어에 구워진다
+.env
+.venv/
+__pycache__/
+*.pyc
+*.db
+.tago.json
+*.json.cache
+tests/
