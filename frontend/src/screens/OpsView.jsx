@@ -50,7 +50,7 @@ export default function OpsView({ embedded = false }) {
 
       <div className="space-y-3 p-4">
         {/* 오늘 물량 */}
-        <Card>
+        <Card className="p-4">
           <div className="text-[13px] font-semibold text-brand">운영</div>
           <div className="text-[20px] font-bold text-g900">오늘 물량</div>
           <div className="text-[13px] text-g500">기준 {board.as_of}</div>
@@ -116,7 +116,7 @@ export default function OpsView({ embedded = false }) {
 
         {/* 실적 최근 7일 */}
         {live && (
-          <Card>
+          <Card className="p-4">
             <div className="text-[13px] font-semibold text-brand">실적</div>
             <div className="text-[20px] font-bold text-g900">최근 7일</div>
             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -167,7 +167,7 @@ export default function OpsView({ embedded = false }) {
         )}
 
         {/* 남은 편성과 잔여 공간 — 아직 출발하지 않은 편성만, 출발 임박 순 */}
-        <Card>
+        <Card className="p-4">
           <div className="text-[13px] font-semibold text-brand">열차별</div>
           <div className="text-[20px] font-bold text-g900">남은 편성과 잔여 공간</div>
           <div className="text-[13px] text-g500">출발 임박 순 · 서울↔부산 축 {board.trains.length}편</div>
@@ -198,7 +198,7 @@ export default function OpsView({ embedded = false }) {
         </Card>
 
         {/* 배상 재원 */}
-        <Card>
+        <Card className="p-4">
           <div className="text-[13px] font-semibold text-brand">배상 재원</div>
           <div className="text-[20px] font-bold text-g900">보증금 · 단체보험</div>
           <div className="mt-3 grid grid-cols-2 gap-2">
@@ -243,7 +243,7 @@ export default function OpsView({ embedded = false }) {
 
         {/* 근거 — 실측/가정 대장 */}
         {prov && (
-          <Card>
+          <Card className="p-4">
             <div className="text-[13px] font-semibold text-brand">근거</div>
             <div className="text-[20px] font-bold text-g900">이 화면의 숫자는 어디서 왔나</div>
             <div className="mt-3 flex flex-wrap gap-2">
