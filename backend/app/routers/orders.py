@@ -272,6 +272,27 @@ def carrier_calls(carrier_id: str):
         return {"calls": out}
 
 
+@router.get("/carrier/{carrier_id}/requests")
+def carrier_requests(carrier_id: str):
+    """내 운반 요청 — 수락해서 수행 중인 구간 + 오늘 보상 합계."""
+    with Session(engine) as s:
+        legs = s.exec(select(Leg).where(Leg.carrier_id == carrier_id)).all()
+        out, reward = [], 0
+        for leg in legs:
+            order = s.get(Order, leg.order_id)
+            if not order or order.status == "CANCELLED":
+                continue
+            reward += leg.reward if leg.handed_over else 0
+            if not leg.handed_over:
+                out.append({
+                    "order_id": order.id, "seq": leg.seq, "label": leg.label,
+                    "from_name": leg.from_name, "to_name": leg.to_name,
+                    "start_at": leg.start_at, "end_at": leg.end_at,
+                    "reward": leg.reward, "handover_code": leg.handover_code,
+                })
+        return {"active": out, "earned_today": reward}
+
+
 class RespondBody(BaseModel):
     accept: bool
 
