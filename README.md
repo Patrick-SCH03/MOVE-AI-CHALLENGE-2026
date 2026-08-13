@@ -6,7 +6,7 @@
 
 <img src="frontend/public/app-icon.png" width="110" alt="KTX 당일배송 앱 아이콘" />
 
-# KTX 당일배송
+# Ko-Nect · KTX 당일배송
 
 **출근길 시민과 KTX가 이어 달리는 당일 특송 — 역에 가지 않고 오늘 안에 보냅니다**
 
