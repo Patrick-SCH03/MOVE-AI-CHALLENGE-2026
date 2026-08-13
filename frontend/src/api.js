@@ -22,15 +22,11 @@ export const api = {
   route: (payload) => req("/route", { method: "POST", body: payload }),
   carriers: () => req("/carriers"),
   match: (payload) => req("/match", { method: "POST", body: payload }),
-  capacity: (boost) => req(`/capacity?boost=${boost ? "true" : "false"}`),
   live: () => req("/live"),
   opsBoard: () => req("/ops/board"),
-  calibration: () => req("/calibration"),
-  legModel: () => req("/leg-model"),
   provenance: () => req("/provenance"),
   terms: () => req("/terms"),
   consents: () => req("/consents"),
-  insurance: () => req("/insurance"),
   documents: (audience) => req(`/documents${audience ? `?audience=${audience}` : ""}`),
   document: (id) => req(`/documents/${id}`),
   places: (q) => req(`/places?q=${encodeURIComponent(q)}`),
@@ -54,7 +50,6 @@ export const api = {
   carrierCalls: (cid) => req(`/carrier/${cid}/calls`),
   callRespond: (callId, accept) =>
     req(`/carrier/call/${callId}/respond`, { method: "POST", body: { accept } }),
-  carrierVerify: (cid) => req(`/carrier/${cid}/verify`, { method: "POST", body: {} }),
 };
 
 /* 받침에 따라 '로/으로'가 갈린다.
