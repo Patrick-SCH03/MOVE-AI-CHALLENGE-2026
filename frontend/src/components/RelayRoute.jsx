@@ -1,5 +1,5 @@
 import React from "react";
-import { pct, pct1 } from "../api";
+import { pct1 } from "../api";
 import { Card, Chip, SectionHead } from "./Primitives";
 
 /* 간선과 지선을 색으로 나눈다 (DESIGN.md §2 규칙 1).

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { won } from "../api";
-import { Button, Chip, Spinner, VERDICT } from "../components/Primitives";
+import { Chip, Spinner, VERDICT } from "../components/Primitives";
 
 /* 1 / 3 — 접수하기
    대화로 받는다. 폼을 채우게 하지 않는다.
