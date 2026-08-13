@@ -5,22 +5,16 @@ from datetime import timedelta
 from fastapi import APIRouter
 from sqlmodel import Session, select
 
-from ..clock import KST, now_kst
+from ..clock import kst_day_start_utc
 from ..db import engine
 from ..models import Order
 
 router = APIRouter(prefix="/api")
 
 
-def _kst_day_start_utc():
-    """KST 자정을 UTC naive 로 — UTC 자정으로 '오늘'을 세면 한국 오전 9시에 하루가 바뀐다."""
-    k = now_kst().replace(hour=0, minute=0, second=0, microsecond=0)
-    return k.astimezone(KST).replace(tzinfo=None) - timedelta(hours=9)
-
-
 @router.get("/live")
 def live():
-    day_start = _kst_day_start_utc()
+    day_start = kst_day_start_utc()
     week_start = day_start - timedelta(days=7)
     with Session(engine) as s:
         orders = s.exec(select(Order)).all()

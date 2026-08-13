@@ -6,14 +6,14 @@ from fastapi import APIRouter
 from sqlmodel import Session, select
 
 from .. import tago
-from ..clock import service_now, to_hhmm, to_min, today_yyyymmdd
+from ..clock import kst_day_start_utc, service_now, to_hhmm, to_min, today_yyyymmdd
 from ..db import engine
 from ..models import Call, Order
 from ..seed.carriers import CARRIERS
 from ..seed.places import haversine_km
 from ..seed.stations import STATIONS
 from ..tools.channels import SPLIT
-from .meta import _kst_day_start_utc
+
 
 router = APIRouter(prefix="/api")
 
@@ -39,7 +39,7 @@ def _active_carriers_near(lat: float, lon: float, now_min: int) -> int:
 def ops_board():
     now_min = service_now()
     today = today_yyyymmdd()
-    day_start = _kst_day_start_utc()
+    day_start = kst_day_start_utc()
 
     with Session(engine) as s:
         orders = s.exec(select(Order)).all()

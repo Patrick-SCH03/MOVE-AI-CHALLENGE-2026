@@ -57,3 +57,10 @@ def service_now() -> int:
 def utc_naive_now() -> datetime:
     """저장용 — DB 에는 UTC naive 로만 넣는다."""
     return datetime.utcnow()
+
+
+def kst_day_start_utc() -> datetime:
+    """KST 자정을 UTC naive 로 — UTC 자정으로 '오늘'을 세면 한국 오전 9시에
+    하루가 바뀐다. '오늘' 집계는 전부 이 경계를 쓴다."""
+    k = now_kst().replace(hour=0, minute=0, second=0, microsecond=0)
+    return k.replace(tzinfo=None) - timedelta(hours=9)

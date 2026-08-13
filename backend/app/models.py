@@ -11,6 +11,13 @@ from datetime import datetime
 
 from sqlmodel import Field, SQLModel
 
+# 상태·채널 표시명 — 화면 문구의 단일 출처. 라우터·알림이 각자 들고 있으면
+# 한쪽만 고쳐진 채 화면마다 다른 이름이 나간다 (실제로 두 벌 있었다)
+STATUS_LABELS = {"ACCEPTED": "접수 완료", "PICKED_UP": "수취 완료", "ON_TRAIN": "운송 중",
+                 "COMPLETED": "배송 완료", "CANCELLED": "취소됨"}
+CHANNEL_LABELS = {"desk": "KTX특송 창구", "locker": "역사 무인함", "relay": "시민 운반",
+                  "fullmile": "기사 방문 픽업"}
+
 
 class Order(SQLModel, table=True):
     id: str = Field(primary_key=True)          # "TP" + YYMMDD + 4자리

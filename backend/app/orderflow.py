@@ -11,7 +11,7 @@ from datetime import timedelta
 from sqlmodel import Session, select
 
 from .clock import service_now, to_hhmm, to_min, utc_naive_now
-from .models import Call, Leg, Order, ProofEvent
+from .models import STATUS_LABELS, Call, Leg, Order, ProofEvent
 from .seed.carriers import BY_ID
 from .seed.places import haversine_km, resolve
 from .seed.stations import BY_CODE
@@ -364,10 +364,8 @@ def notifications(s: Session, order: Order) -> dict:
             n["trend"] = "up" if n["probability"] > prev else "down"
         prev = n["probability"]
 
-    status_labels = {"ACCEPTED": "접수 완료", "PICKED_UP": "수취 완료", "ON_TRAIN": "운송 중",
-                     "COMPLETED": "배송 완료", "CANCELLED": "취소됨"}
     return {
-        "status": order.status, "status_label": status_labels.get(order.status, order.status),
+        "status": order.status, "status_label": STATUS_LABELS.get(order.status, order.status),
         "delay_min": order.delay_min,
         # 탑재 전에는 확률을 만들지 않는다 — 열차에 싣지도 않았는데 열차가 늦었다고 할 수 없다
         "eta_now": eta_now if loaded or legs[3].handed_over else None,

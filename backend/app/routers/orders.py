@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 from .. import orderflow
 from ..clock import utc_naive_now
 from ..db import engine
-from ..models import Call, Leg, Order, ProofAccess, ProofEvent
+from ..models import CHANNEL_LABELS, STATUS_LABELS, Call, Leg, Order, ProofAccess, ProofEvent
 from ..seed import tariff
 from ..tools import route as route_tool
 from ..tools.channels import SURCHARGE
@@ -43,15 +43,11 @@ def _order_payload(s: Session, order: Order) -> dict:
         "remaining_sec": max(0, int((c.expires_at - now).total_seconds())) if c.expires_at else 0,
         "timeout_sec": orderflow.CALL_TIMEOUT_SEC,
     } for c in calls if c.status == "RINGING"]
-    status_labels = {"ACCEPTED": "접수 완료", "PICKED_UP": "수취 완료", "ON_TRAIN": "운송 중",
-                     "COMPLETED": "배송 완료", "CANCELLED": "취소됨"}
-    product = {"desk": "KTX특송 창구", "locker": "역사 무인함", "relay": "시민 운반",
-               "fullmile": "기사 방문 픽업"}
     return {
         "order": {
             "id": order.id, "status": order.status,
-            "status_label": status_labels.get(order.status, order.status),
-            "product": product.get(order.channel, order.channel),
+            "status_label": STATUS_LABELS.get(order.status, order.status),
+            "product": CHANNEL_LABELS.get(order.channel, order.channel),
             "origin": order.origin, "destination": order.destination,
             "item": order.item, "declared_value": order.declared_value,
             "fare": order.fare, "probability": order.probability,
