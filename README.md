@@ -114,9 +114,25 @@ flowchart LR
 
 ### 전체 아키텍처
 
-<div align="center">
-<img src="docs/architecture.png" width="680" alt="서비스 아키텍처 — Vercel 세 화면이 Railway FastAPI 를 3초 폴링으로 호출하고, AI 파이프라인·주문 흐름·SQLite 가 TAGO·열차운행정보·특일 정보·Gemini 네 실데이터 연동 위에서 돈다" />
-</div>
+```mermaid
+flowchart TB
+    subgraph V["Vercel — React SPA · PWA"]
+        direction LR
+        S["발송인 앱"] ~~~ CA["운반자 화면"] ~~~ OP["운영자 대시보드"]
+    end
+    V -->|"REST · 3초 폴링"| R
+    subgraph R["Railway — FastAPI · Docker"]
+        direction LR
+        P["접수 파싱<br/>Gemini + 규칙 폴백"] --> SC["규정 판정<br/>금지품 · 근거 조문"]
+        SC --> M["경로 · 매칭<br/>헝가리안 전역 배정"] --> PB["확률 계산<br/>몬테카를로 1만 회"]
+        P --> F["주문 흐름<br/>배차 콜 · 인계 · 증명"] --> DB[("SQLite<br/>기동 시 7일 시드")]
+        PD["공공데이터 클라이언트<br/>회로차단 · 하루 캐시"]
+    end
+    R --> T["TAGO 열차정보<br/>오늘 시간표"]
+    R --> TR["열차운행정보<br/>전일 실적 → 정시율"]
+    R --> SD["특일 정보<br/>공휴일 → 매칭 리스크"]
+    R --> GM["Gemini API<br/>구조화 출력"]
+```
 
 ---
 
