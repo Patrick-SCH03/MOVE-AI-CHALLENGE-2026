@@ -35,6 +35,7 @@ class Order(SQLModel, table=True):
     consent_at: datetime | None = None
     pickup_mode: str = "door"                  # door|station
     delay_min: int = 0                         # 확인된 열차 지연 (시연은 수동 주입)
+    cancelled_reason: str = ""                 # 취소 사유 — 화면에 그대로 나간다
     created_at: datetime | None = None         # UTC naive
 
 

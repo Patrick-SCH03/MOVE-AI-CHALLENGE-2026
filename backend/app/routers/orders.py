@@ -59,6 +59,9 @@ def _order_payload(s: Session, order: Order) -> dict:
             "eta": order.eta, "deadline": order.deadline, "train_no": order.train_no,
             "liability_cap": tariff.liability_cap(order.declared_value),
             "pickup_mode": order.pickup_mode, "delay_min": order.delay_min,
+            # 탑재 후에는 물리적으로 되돌릴 수 없다 — 취소 버튼 자체를 접는다
+            "can_cancel": order.status in ("ACCEPTED", "PICKED_UP"),
+            "cancelled_reason": order.cancelled_reason or "이용자 요청",
             "consents": {"notice": order.notice_consent, "recipient": order.recipient_consent,
                          "relay": order.relay_consent},
             "dispatch": {"ringing": ringing,
@@ -83,8 +86,12 @@ def create_order(body: OrderCreate):
     # 동의는 서버가 막는다 — 체크박스만 두면 API 를 직접 부르는 순간 뚫린다.
     # 항목을 나누는 이유: 고지 확인(면책 요건)·수령인 정보 제공(법인)·운반자 제공(개인)은
     # 성격이 다른 동의라 하나로 묶을 수 없다
-    if not (body.notice_consent and body.recipient_consent):
-        raise HTTPException(400, "확률·배상 고지 확인과 수령인 정보 제공 동의가 필요해요.")
+    if not body.notice_consent:
+        raise HTTPException(400, "확률·배상 고지 확인이 필요해요.")
+    # 수령인 동의는 수령인 정보를 적었을 때만 — 안 적으면 제공할 정보 자체가 없다
+    if (body.recipient_name.strip() or body.recipient_phone.strip()) \
+            and not body.recipient_consent:
+        raise HTTPException(400, "수령인에게 알리고 동의를 받았는지 확인이 필요해요.")
     if body.channel == "relay" and not body.relay_consent:
         raise HTTPException(400, "시민 운반은 운반자(개인)에게 정보가 제공돼요. 동의가 필요해요.")
     if body.channel not in SURCHARGE:
@@ -176,14 +183,19 @@ def set_pickup_mode(order_id: str, body: PickupBody):
         return orderflow.notifications(s, order)
 
 
+class CancelBody(BaseModel):
+    reason: str | None = None
+
+
 @router.post("/orders/{order_id}/cancel")
-def cancel_order(order_id: str):
+def cancel_order(order_id: str, body: CancelBody | None = None):
     with Session(engine) as s:
         order = _get_order(s, order_id)
         if order.status in ("ON_TRAIN", "COMPLETED"):
             # 이미 열차에 실렸다 — 물리적으로 되돌릴 수 없다
             raise HTTPException(400, "이미 열차에 실려 취소할 수 없어요. 도착역 수령으로 바꿀 수는 있어요.")
         order.status = "CANCELLED"
+        order.cancelled_reason = (body.reason if body and body.reason else "이용자 요청")
         s.add(order)
         s.commit()
         return {"ok": True, "status": order.status}
@@ -234,10 +246,96 @@ def get_proof(order_id: str, client: str = "외부조회"):
 # ── 운반자 ─────────────────────────────────────────────────────────────
 @router.get("/carriers")
 def list_carriers():
-    return {"team": [{
+    from ..seed.carriers import CARRIERS
+
+    # 시연 팀원 4명이 목록 앞에 온다 — 90초 콜 안에 400명 목록을 뒤질 수 없다
+    return {"carriers": [{
         "id": c.id, "name": c.name, "type": c.type, "mode": c.mode,
         "reliability": round(c.reliability, 2), "completed_count": c.completed_count,
-    } for c in MANUAL]}
+    } for c in CARRIERS]}
+
+
+def _safe_number(order_id: str) -> str:
+    """안심번호 — 발급은 모의(통신사 계약 전). 수명(인계 완료 시 회수)은 실제로 동작한다."""
+    h = abs(hash(order_id))
+    return f"0508-{h % 10000:04d}-{(h // 10000) % 10000:04d}"
+
+
+def _requests_payload(s: Session, carrier_id: str) -> dict:
+    from ..seed.carriers import BY_ID as CARRIER_BY_ID
+
+    c = CARRIER_BY_ID.get(carrier_id)
+    if not c:
+        raise HTTPException(404, "없는 운반자예요.")
+    legs = s.exec(select(Leg).where(Leg.carrier_id == carrier_id)).all()
+    rows, pending_reward = [], 0
+    for leg in legs:
+        order = s.get(Order, leg.order_id)
+        if not order or order.status == "CANCELLED":
+            continue
+        if leg.accepted and not leg.handed_over:
+            pending_reward += leg.reward
+        has_recipient = bool(order.recipient_name.strip() or order.recipient_phone.strip())
+        rows.append({
+            "order_id": order.id, "seq": leg.seq, "label": leg.label,
+            "from_name": leg.from_name, "to_name": leg.to_name,
+            "start_at": leg.start_at, "end_at": leg.end_at,
+            "item": order.item or "물품", "reward": leg.reward,
+            "accepted": leg.accepted, "handed_over": leg.handed_over,
+            "handover_code": leg.handover_code,
+            # 수락 후·인계 전에만 연다. 인계가 끝나면 번호가 회수되어 칸 자체가 사라진다
+            "recipient_name": (order.recipient_name[:1] + "*" * max(1, len(order.recipient_name) - 1))
+                              if has_recipient and leg.accepted and not leg.handed_over else None,
+            "recipient_contact": _safe_number(order.id)
+                                 if has_recipient and leg.accepted and not leg.handed_over else None,
+            "privacy_note": "인계가 끝나면 주소와 연락처는 즉시 가려져요.",
+        })
+    deposit = min(50_000, c.completed_count * 100)   # 건당 100원 적립 · 상한 5만원
+    return {
+        "carrier": {
+            "id": c.id, "name": c.name, "type": c.type, "mode": c.mode,
+            "active_from": c.active_from, "active_to": c.active_to,
+            "reliability": round(c.reliability, 2),
+            "completed_count": c.completed_count, "ontime_rate": c.ontime_rate,
+        },
+        "pending_reward": pending_reward,
+        "requests": rows,
+        "identity": {
+            "verified": True, "method": "PASS(모의)",
+            "note": "실명과 주민등록번호는 저장하지 않습니다. 연계정보(CI) 해시만 보관합니다.",
+        },
+        "protection": {
+            "deposit": deposit, "recourse_cap": deposit,
+            "paid_by": "예치금을 내지 않으셔도 돼요 — 운임에서 적립됩니다.",
+            "policy_limit": 3_000_000,
+        },
+        "external": {
+            "identity": {"simulated": True, "provider": "PASS(모의)"},
+            "safe_number": {"simulated": True},
+        },
+    }
+
+
+class CarrierAcceptBody(BaseModel):
+    order_id: str
+    seq: int
+    carrier_id: str
+    accept: bool
+
+
+@router.post("/carrier/accept")
+def carrier_accept(body: CarrierAcceptBody):
+    """요청 카드에서의 수락/거절 — 울리는 콜에 응답하는 것과 같은 길이다."""
+    with Session(engine) as s:
+        call = s.exec(select(Call).where(
+            Call.order_id == body.order_id, Call.seq == body.seq,
+            Call.carrier_id == body.carrier_id, Call.status == "RINGING")).first()
+        if not call:
+            raise HTTPException(400, "응답할 수 있는 요청이 없어요.")
+        err = orderflow.respond_call(s, call, body.accept)
+        if err:
+            raise HTTPException(400, err)
+        return _requests_payload(s, body.carrier_id)
 
 
 @router.get("/carrier/{carrier_id}/calls")
@@ -274,23 +372,9 @@ def carrier_calls(carrier_id: str):
 
 @router.get("/carrier/{carrier_id}/requests")
 def carrier_requests(carrier_id: str):
-    """내 운반 요청 — 수락해서 수행 중인 구간 + 오늘 보상 합계."""
+    """내 운반 요청 — 프로필·보호 장치·수행 구간을 한 번에 내려준다."""
     with Session(engine) as s:
-        legs = s.exec(select(Leg).where(Leg.carrier_id == carrier_id)).all()
-        out, reward = [], 0
-        for leg in legs:
-            order = s.get(Order, leg.order_id)
-            if not order or order.status == "CANCELLED":
-                continue
-            reward += leg.reward if leg.handed_over else 0
-            if not leg.handed_over:
-                out.append({
-                    "order_id": order.id, "seq": leg.seq, "label": leg.label,
-                    "from_name": leg.from_name, "to_name": leg.to_name,
-                    "start_at": leg.start_at, "end_at": leg.end_at,
-                    "reward": leg.reward, "handover_code": leg.handover_code,
-                })
-        return {"active": out, "earned_today": reward}
+        return _requests_payload(s, carrier_id)
 
 
 class RespondBody(BaseModel):
