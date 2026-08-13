@@ -16,14 +16,14 @@ from sqlmodel import Session, select
 from ..clock import now_kst, service_now, to_hhmm, to_min
 from ..db import engine
 from ..models import Leg, Order
-from ..seed import tariff
 from ..tools import route as route_tool
-from ..tools.channels import SURCHARGE
+from ..tools.channels import total_fare
 
-
-def _fare(plan: dict, item: str, value: int | None, channel: str) -> int:
-    base, _ = tariff.base_fare(item, plan["dep_code"], plan["arr_code"], value)
-    return base + SURCHARGE[channel]
+# 시드 행동 규칙 — 모듈 첫머리 원칙 셋의 수치판
+MIN_ACCEPT_PROBABILITY = 0.75   # 이보다 낮으면 접수하지 않고 시각을 미룬다
+OUTCOME_EXPONENT = 1.10         # 성공 여부 ~ p^1.10 — 예측보다 약간 박한 현실
+CANCEL_RATE = 0.09              # 완료 이전에 취소되는 비율 — 가정
+SEED_MC_ITERATIONS = "2000"     # 시드는 정밀도보다 속도
 
 # 시드 경로 풀 — 지명 사전에 있고 생활권 밖(40km+)인 조합만
 _ROUTES = [
@@ -50,11 +50,11 @@ def _make_order(s: Session, rng: random.Random, day_offset: int, seq: int,
     status = "COMPLETED" if day_offset > 0 else "ACCEPTED"
     late = False
     if day_offset > 0:
-        if rng.random() < 0.09:
+        if rng.random() < CANCEL_RATE:
             status = "CANCELLED"
         else:
-            # 결과는 예측에서 — 성공 ~ p^1.10
-            late = rng.random() >= p ** 1.10
+            # 결과는 예측에서 — 무관하게 뽑으면 보정할 것이 없어진다 (모듈 docstring)
+            late = rng.random() >= p ** OUTCOME_EXPONENT
     eta = plan["eta"]
     if late:
         # 실패 건은 데드라인을 넘긴 도착으로 남긴다 — 정시율 집계의 분모·분자가 된다
@@ -67,7 +67,7 @@ def _make_order(s: Session, rng: random.Random, day_offset: int, seq: int,
         origin=origin, destination=dest, item=item, declared_value=value,
         deadline=plan["deadline"], eta=eta, train_no=plan["train_no"],
         # 운임은 요율 단일 출처에서 — 눈대중 상수를 쓰면 내역·합계가 요율표와 어긋난다
-        fare=_fare(plan, item, value, channel),
+        fare=total_fare(item, plan["dep_code"], plan["arr_code"], value, channel),
         probability=p, channel=channel, status=status,
         plan_json=json.dumps(plan, ensure_ascii=False),
         notice_consent=True, recipient_consent=True, relay_consent=channel == "relay",
@@ -93,9 +93,9 @@ def _make_order(s: Session, rng: random.Random, day_offset: int, seq: int,
 def generate():
     rng = random.Random(20260813)   # seed 고정 — 재기동해도 같은 이력
     made = 0
-    # 시드는 정밀도보다 속도 — 반복 수를 낮췄다가 끝나면 되돌린다
+    # 반복 수를 낮췄다가 끝나면 되돌린다
     prev_iter = os.environ.get("MC_ITERATIONS")
-    os.environ["MC_ITERATIONS"] = "2000"
+    os.environ["MC_ITERATIONS"] = SEED_MC_ITERATIONS
     try:
         with Session(engine) as s:
             for day_offset in range(7, -1, -1):
@@ -115,8 +115,9 @@ def generate():
                     deadline = to_hhmm(min(21 * 60, now_min + rng.choice([180, 240, 300, 360])))
                     plan = route_tool.build(origin, dest, deadline, now=to_hhmm(now_min),
                                             with_suggestions=False)
-                    # 확률 0.75 미만이면 접수하지 않고 미룬다 — 다음 시도로
-                    if not plan.get("feasible") or plan["combined_probability"] < 0.75:
+                    # 확률이 낮으면 접수하지 않고 미룬다 — 다음 시도로
+                    if not plan.get("feasible") \
+                            or plan["combined_probability"] < MIN_ACCEPT_PROBABILITY:
                         continue
                     seq += 1
                     _make_order(s, rng, day_offset, seq, plan, origin, dest, now_min)

@@ -11,6 +11,7 @@ from ..clock import utc_naive_now
 from ..db import engine
 from ..models import CHANNEL_LABELS, STATUS_LABELS, Call, Leg, Order, ProofAccess, ProofEvent
 from ..seed import tariff
+from ..tools import channels
 from ..tools import route as route_tool
 from ..tools.channels import SURCHARGE
 
@@ -102,9 +103,8 @@ def create_order(body: OrderCreate):
     if not plan.get("feasible"):
         raise HTTPException(400, plan.get("reason", "지금은 경로를 만들 수 없어요."))
 
-    base, _ = tariff.base_fare(body.item, plan["dep_code"], plan["arr_code"],
-                               body.declared_value)
-    fare = base + SURCHARGE[body.channel]
+    fare = channels.total_fare(body.item, plan["dep_code"], plan["arr_code"],
+                               body.declared_value, body.channel)
 
     with Session(engine) as s:
         order, _legs = orderflow.create_order(s, plan, body.model_dump(), fare)

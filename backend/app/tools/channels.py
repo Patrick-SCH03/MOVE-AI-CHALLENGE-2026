@@ -54,6 +54,14 @@ NOTES = {
 }
 
 
+def total_fare(item: str | None, dep_code: str, arr_code: str,
+               declared_value: int | None, channel: str) -> int:
+    """청구 운임 = 공시 기본 운임 + 채널 추가분. 접수 확정·시드가 같은 식을 쓴다 —
+    각자 더하면 내역·합계가 요율표와 어긋난다."""
+    base, _ = tariff.base_fare(item, dep_code, arr_code, declared_value)
+    return base + SURCHARGE[channel]
+
+
 def cap(p: float) -> float:
     return min(0.99, max(0.0, p))
 

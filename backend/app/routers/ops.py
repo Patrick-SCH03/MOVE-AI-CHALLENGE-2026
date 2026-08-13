@@ -11,15 +11,19 @@ from ..db import engine
 from ..models import Call, Order
 from ..seed.carriers import CARRIERS
 from ..seed.places import haversine_km
-from ..seed.stations import STATIONS
+from ..seed.stations import BY_CODE, STATIONS
 from ..tools.channels import SPLIT
-
+from ..tools.route import DESK_CUTOFF_MIN
 
 router = APIRouter(prefix="/api")
 
 _CAPITAL = {"SEO", "YSN", "GMY", "DTN"}
 # 편성 정원 — 적재공간(공식 ㎥) × 적재효율 0.60 ÷ 박스 0.02㎥. 환산이 가정이다
 TRAIN_CAPACITY = 157
+# 배상 재원 가정 — 실측/가정 대장·안내 문구가 같은 값을 말해야 한다
+INSURANCE_PER_CASE = 300      # 시민 운반 1건당 보험료 적립
+ACCIDENT_RATE = 0.001         # 사고율 0.10% — 가정
+AVG_PAYOUT = 150_000          # 평균 배상액 — 가정
 
 
 def _active_carriers_near(lat: float, lon: float, now_min: int) -> int:
@@ -117,9 +121,10 @@ def ops_board():
             used = slot["biz"] + slot["personal"] + 1   # 유보 1
             trains_out.append({
                 "no": t.no, "grade": t.grade,
-                "dep_station": "서울역" if dep_code == "SEO" else "부산역",
-                "arr_station": "부산역" if dep_code == "SEO" else "서울역",
-                "dep_time": t.dep_time, "cutoff": to_hhmm(to_min(t.dep_time) - 30),
+                "dep_station": BY_CODE[dep_code].name,
+                "arr_station": BY_CODE[arr_code].name,
+                "dep_time": t.dep_time,
+                "cutoff": to_hhmm(to_min(t.dep_time) - DESK_CUTOFF_MIN),
                 "biz": slot["biz"], "personal": slot["personal"], "reserved": 1,
                 "capacity": TRAIN_CAPACITY, "remaining": TRAIN_CAPACITY - used,
                 "load_pct": round(used / TRAIN_CAPACITY * 100, 1),
@@ -129,12 +134,13 @@ def ops_board():
     # 배상 재원 — 시민 운반 1건당 400원 적립 (보험료 300 + 보증금 100). 배분표가 출처
     relay_total = sum(1 for o in orders if o.channel == "relay" and o.status != "CANCELLED")
     per_case = SPLIT["relay"]["보험·보증 적립"]
+    deposit = per_case - INSURANCE_PER_CASE
     reserve = {
         "relay_total": relay_total,
         "reserve_total": relay_total * per_case,
-        "insurance_total": relay_total * 300,
-        "expected_payout": int(relay_total * 0.001 * 150_000),  # 사고율 0.10%·평균 15만 — 가정
-        "per_case": f"{per_case}원 = 보험료 300원 + 보증금 100원",
+        "insurance_total": relay_total * INSURANCE_PER_CASE,
+        "expected_payout": int(relay_total * ACCIDENT_RATE * AVG_PAYOUT),
+        "per_case": f"{per_case}원 = 보험료 {INSURANCE_PER_CASE}원 + 보증금 {deposit}원",
         "coverage_per_accident": 3_000_000,
         "deductible": "100,000원 · 회사 부담",
         "carrier_recourse_cap": "50,000원 · 500건 수행 시 도달",
