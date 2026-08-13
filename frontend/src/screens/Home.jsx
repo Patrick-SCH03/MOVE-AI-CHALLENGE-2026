@@ -55,22 +55,23 @@ export default function Home({ onIntake, onHistory }) {
           <div className="p-4">
             <div className="flex items-center gap-2">
               <div className="min-w-0 flex-1 text-center">
-                <div className="text-[13px] text-g500">출발지</div>
+                <div className="text-[13px] text-g600">출발지</div>
                 <input
                   value={form.origin} onChange={set('origin')} placeholder="선택"
-                  className="w-full min-w-0 border-b border-g300 pb-1 text-center text-[22px] font-bold text-g900 placeholder:text-g400 focus:outline-none focus:border-brand"
+                  className="w-full min-w-0 pb-1 text-center text-[26px] font-bold tracking-[-0.02em] text-g900 placeholder:text-g400 focus:outline-none"
                 />
               </div>
+              {/* 코레일톡의 파란 원형 스왑 버튼 */}
               <button
                 onClick={() => setForm((f) => ({ ...f, origin: f.destination, destination: f.origin }))}
-                className="mt-4 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-g100 text-[16px] text-g600"
+                className="mt-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand text-[18px] text-white shadow-card active:bg-brand-700"
                 aria-label="출발지와 도착지 바꾸기"
               >⇄</button>
               <div className="min-w-0 flex-1 text-center">
-                <div className="text-[13px] text-g500">도착지</div>
+                <div className="text-[13px] text-g600">도착지</div>
                 <input
                   value={form.destination} onChange={set('destination')} placeholder="선택"
-                  className="w-full min-w-0 border-b border-g300 pb-1 text-center text-[22px] font-bold text-g900 placeholder:text-g400 focus:outline-none focus:border-brand"
+                  className="w-full min-w-0 pb-1 text-center text-[26px] font-bold tracking-[-0.02em] text-g900 placeholder:text-g400 focus:outline-none"
                 />
               </div>
             </div>
@@ -115,14 +116,24 @@ export default function Home({ onIntake, onHistory }) {
             </div>
           </div>
 
-          {/* 하단 CTA — 채워지기 전에는 무엇이 필요한지 보여준다 */}
-          <button
-            onClick={submit}
-            disabled={!filled}
-            className={`w-full py-4 text-[16px] font-bold ${filled ? 'bg-brand text-white active:bg-brand-700' : 'bg-g200 text-g500'}`}
-          >
-            {filled ? '견적 보기' : '출발지 · 도착지 · 물건'}
-          </button>
+          {/* 하단 2분할 CTA — 코레일톡 예매 위젯 패턴. 채워지기 전에는 무엇이 필요한지 보여준다 */}
+          <div className="grid grid-cols-2">
+            <button
+              onClick={() => document.getElementById('fare-card')?.scrollIntoView({ behavior: 'smooth' })}
+              className="bg-brand py-4 text-[16px] font-bold text-white active:bg-brand-700"
+            >
+              요금 안내
+            </button>
+            <button
+              onClick={submit}
+              disabled={!filled}
+              className={`border-l py-4 text-[16px] font-bold
+                ${filled ? 'border-white/25 bg-brand text-white active:bg-brand-700'
+                         : 'border-transparent bg-g200 text-g500'}`}
+            >
+              {filled ? '견적 보기' : '출발지 · 도착지 · 물건'}
+            </button>
+          </div>
         </div>
 
         {/* AI 접수 도우미 */}
@@ -147,7 +158,7 @@ export default function Home({ onIntake, onHistory }) {
           </div>
         </Card>
 
-        {/* 빠른 메뉴 */}
+        {/* 빠른 메뉴 — 코레일톡의 연한 파랑 아이콘 타일 */}
         <Card>
           <div className="grid grid-cols-4 gap-2">
             {[
@@ -157,8 +168,8 @@ export default function Home({ onIntake, onHistory }) {
               ['🎧', '고객센터', () => {}],
             ].map(([icon, label, fn]) => (
               <button key={label} onClick={fn} className="flex flex-col items-center gap-1.5">
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-50/60 text-[24px]">{icon}</span>
-                <span className="text-[13px] text-g700">{label}</span>
+                <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#eaf2fe] text-[26px]">{icon}</span>
+                <span className="text-[13px] font-medium text-g800">{label}</span>
               </button>
             ))}
           </div>
@@ -210,6 +221,18 @@ export default function Home({ onIntake, onHistory }) {
             <div className="text-center text-[19px] font-bold">
               <span className="text-brand">KTX 당일배송</span> <span className="text-g900">요금 안내</span>
             </div>
+            {/* 대표 규격 3종 타일 — 역 짐배송 안내 카드 패턴 */}
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              {[
+                ['🎒', tariff.tiers[0]], ['🧳', tariff.tiers[2]], ['🛄', tariff.tiers[4]],
+              ].map(([icon, t]) => t && (
+                <div key={t.name} className="flex flex-col items-center rounded-2xl bg-[#eaf2fe]/60 py-3">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-[22px] shadow-card">{icon}</span>
+                  <div className="mt-1.5 text-[13px] font-bold text-g900">{t.name}</div>
+                  <div className="tnum text-[13px] text-g700">{t.fare.toLocaleString()}원~</div>
+                </div>
+              ))}
+            </div>
             <div className="mt-4 text-[14px] font-semibold text-g700">기본 운임 · 규격별</div>
             <div className="divide-y divide-g100">
               {tariff.tiers.map((t) => (
@@ -243,6 +266,15 @@ export default function Home({ onIntake, onHistory }) {
           </Card>
         )}
       </div>
+
+      {/* 플로팅 안내 필 — 코레일톡 홈의 둘러보기 필 패턴 */}
+      <button
+        onClick={() => document.getElementById('fare-card')?.scrollIntoView({ behavior: 'smooth' })}
+        className="fixed bottom-[74px] left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full
+          border-2 border-brand bg-white px-5 py-2.5 text-[15px] font-bold text-g900 shadow-card"
+      >
+        규격별 요금과 보내는 방법 <span className="text-brand">⌄</span>
+      </button>
     </div>
   )
 }

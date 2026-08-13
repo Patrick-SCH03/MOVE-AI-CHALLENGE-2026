@@ -6,6 +6,7 @@ import History from './screens/History'
 import Home from './screens/Home'
 import MyTab from './screens/MyTab'
 import Onboarding from './screens/Onboarding'
+import OpsView from './screens/OpsView'
 import Progress from './screens/Progress'
 
 // 화면 이동 규칙 — 뒤로가기는 온 길로 돌아간다.
@@ -13,11 +14,19 @@ import Progress from './screens/Progress'
 // 지나오지도 않은 단계(비교 → 접수)를 거슬러 올라간다. 그래서 탭과
 // '접수 흐름 스택'을 따로 든다 — 목록에서 열면 스택이 [progress] 하나뿐이라
 // 뒤로가기가 곧장 목록으로 돌아간다.
+// 라인 아이콘 — 코레일톡 탭바 스타일. 이모지는 기기마다 렌더가 달라 시연이 흔들린다
+const ICONS = {
+  home: <path d="M3 11 12 4l9 7v8a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" />,
+  history: <><path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 18h10" /></>,
+  carrier: <><circle cx="12" cy="5" r="2.2" /><path d="M9 21l2-6-2.5-2 1-5 2.5-1 3 2.5 3 .5" /><path d="M12 12l3 3 1.5 6" /></>,
+  my: <><circle cx="12" cy="8" r="3.2" /><path d="M5 20c1.2-3.4 3.8-5 7-5s5.8 1.6 7 5" /></>,
+}
+
 const TABS = [
-  { id: 'home', label: '홈', icon: '🏠' },
-  { id: 'history', label: '내역', icon: '📦' },
-  { id: 'carrier', label: '운반자', icon: '🏃' },
-  { id: 'my', label: 'MY', icon: '👤' },
+  { id: 'home', label: '홈' },
+  { id: 'history', label: '내역' },
+  { id: 'carrier', label: '운반자' },
+  { id: 'my', label: 'MY' },
 ]
 
 const NAME_KEY = 'tp_name'
@@ -40,7 +49,7 @@ export default function App() {
   }, [])
 
   if (view === 'carrier') return <CarrierView standalone />
-  if (view === 'ops') return <OpsPlaceholder />
+  if (view === 'ops') return <OpsView />
 
   if (!onboarded) {
     return (
@@ -98,10 +107,15 @@ export default function App() {
                 <button
                   key={t.id}
                   onClick={() => setTab(t.id)}
-                  className={`flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium
+                  className={`relative flex flex-col items-center gap-1 pb-2 pt-3 text-[11px] font-semibold
                     ${tab === t.id ? 'text-brand' : 'text-g500'}`}
                 >
-                  <span className="text-[18px] leading-none">{t.icon}</span>
+                  {/* 활성 탭 상단 인디케이터 — 코레일톡 패턴 */}
+                  {tab === t.id && <span className="absolute left-1/2 top-0 h-[3px] w-9 -translate-x-1/2 rounded-b bg-brand" />}
+                  <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="none"
+                       stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    {ICONS[t.id]}
+                  </svg>
                   {t.label}
                 </button>
               ))}
@@ -139,11 +153,3 @@ function FlowScreen({ screen, push, pop, resetTo }) {
   return null
 }
 
-function OpsPlaceholder() {
-  return (
-    <div className="mx-auto flex min-h-screen max-w-[430px] flex-col items-center justify-center gap-2 bg-g100 p-8 text-center">
-      <div className="text-[18px] font-bold text-g900">운영자 화면</div>
-      <div className="text-[14px] text-g500">P10에서 붙습니다</div>
-    </div>
-  )
-}
