@@ -44,7 +44,7 @@ KTX특송은 이미 빠릅니다. 서울에서 부산까지 3시간이면 화물
 
 ### AI · 엔진
 
-<img src="https://skillicons.dev/icons?i=python" height="48" />
+<img src="https://skillicons.dev/icons?i=python" height="48" /> <img src="frontend/public/gemini.png" height="48" alt="Gemini" />
 
 **Gemini 3.6 Flash** (구조화 출력)<br/>
 **NumPy** 몬테카를로 10,000회<br/>
@@ -56,7 +56,7 @@ KTX특송은 이미 빠릅니다. 서울에서 부산까지 3시간이면 화물
 
 ### Back-end
 
-<img src="https://skillicons.dev/icons?i=fastapi,python,sqlite,docker" height="48" />
+<img src="https://skillicons.dev/icons?i=fastapi,sqlite,docker,railway" height="48" />
 
 **FastAPI** · **SQLModel**<br/>
 **SQLite** · **Docker**<br/>
