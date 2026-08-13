@@ -11,6 +11,7 @@ from . import tago  # noqa: E402  (load_dotenv 이후여야 키를 읽는다)
 from .clock import service_now, to_hhmm, today_yyyymmdd  # noqa: E402
 from .db import init_db  # noqa: E402
 from .routers import meta as meta_router  # noqa: E402
+from .routers import orders as orders_router  # noqa: E402
 from .routers import tools as tools_router  # noqa: E402
 
 init_db()
@@ -29,6 +30,7 @@ app.add_middleware(
 
 app.include_router(tools_router.router)
 app.include_router(meta_router.router)
+app.include_router(orders_router.router)
 
 
 @app.get("/api/health")
