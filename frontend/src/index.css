@@ -30,6 +30,9 @@ body { overflow-x: hidden; }
 
 .focus-ring:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
+/* 홈 헤더 — 밝은 파랑 위 오른쪽 위로 번지는 따뜻한 빛 */
+.header-gradient { background: var(--header); }
+
 body {
   background: var(--bg);
   color: var(--ink);
