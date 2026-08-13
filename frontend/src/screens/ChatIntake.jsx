@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
-import { Button, Card, Chip, Spinner } from '../Primitives'
+import { Card, Chip, Icon, Spinner } from '../Primitives'
 
 // AI 접수 도우미 — 홈의 진입 카드와 같은 이름. 문과 안의 이름이 다르면 길을 잃는다.
-export default function ChatIntake({ seed, auto, onQuoted, onBack }) {
-  const [messages, setMessages] = useState([
-    { role: 'bot', text: '어디에서 어디로, 무엇을 언제까지 보내세요? 한 문장으로 말씀해 주세요.' },
-  ])
+// 예시 3번(휘발유)은 금지품 차단 시연용 — 눌러 보면 즉시 BLOCKED 카드가 나온다.
+const EXAMPLES = [
+  '오늘 저녁 7시까지 부산 서면으로 노트북 도착해야 해',
+  '강남에서 해운대로 도자기 화병 저녁 8시까지 40만원',
+  '서울역에서 대전으로 휘발유 한 통 오늘 안에',
+]
+
+export default function ChatIntake({ seed, auto, onQuoted, onBack, onHome }) {
+  const [messages, setMessages] = useState([])
   const [input, setInput] = useState(seed || '')
   const [busy, setBusy] = useState(false)
   const [prior, setPrior] = useState(null)
@@ -58,15 +63,58 @@ export default function ChatIntake({ seed, auto, onQuoted, onBack }) {
     }
   }
 
+  const empty = messages.length === 0
+
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-g200 bg-white px-3 py-3">
-        <button onClick={onBack} className="px-1 text-[18px] text-g600">‹</button>
-        <div className="text-[16px] font-bold text-g900">AI 접수 도우미</div>
-        <span className="ml-auto text-[11px] text-g500">1/3 접수</span>
+      <header className="sticky top-0 z-10 bg-white px-4 pb-3 pt-5">
+        <img src="/korail-blue.png" alt="KORAIL" className="h-6" />
+        <div className="mt-2 flex items-center gap-2">
+          <button onClick={onBack} className="px-1 text-[20px] text-g600">‹</button>
+          <div className="text-[20px] font-bold text-g900">AI 접수 도우미</div>
+          <div className="ml-auto flex items-center gap-3">
+            <span className="tnum text-[14px] text-g500">1 / 3</span>
+            <button onClick={onHome} className="text-[15px] font-medium text-g700">처음으로</button>
+          </div>
+        </div>
       </header>
 
       <div className="flex-1 space-y-3 overflow-y-auto p-4 pb-28">
+        {/* 첫 화면 — 인트로 카드 + 예시 */}
+        <Card>
+          <div className="flex items-start gap-3">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand">
+              <Icon name="chat" size={26} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[18px] font-bold text-g900">AI 접수 도우미</span>
+                <span className="rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">AI</span>
+              </div>
+              <p className="mt-1 text-[15px] leading-7 text-g700">
+                출발지 · 도착지 · 물건 · 도착 기한을 한 문장으로 말씀하시면 보낼 방법을
+                찾아 드려요. 빠진 게 있으면 하나씩 여쭤봅니다.
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        {empty && (
+          <>
+            <div className="pt-1 text-[15px] text-g600">이렇게 요청해보세요</div>
+            {EXAMPLES.map((ex) => (
+              <button
+                key={ex}
+                onClick={() => send(ex)}
+                className="flex w-full items-center gap-2 rounded-card bg-white p-5 text-left shadow-card active:bg-g50"
+              >
+                <span className="min-w-0 flex-1 text-[16px] text-g900">{ex}</span>
+                <span className="shrink-0 text-g400">›</span>
+              </button>
+            ))}
+          </>
+        )}
+
         {messages.map((m, i) => (
           <MessageBubble key={i} msg={m} onSuggest={(s) => send(`${s.deadline}까지로 해주세요`)} />
         ))}
@@ -78,6 +126,7 @@ export default function ChatIntake({ seed, auto, onQuoted, onBack }) {
         <div ref={bottomRef} />
       </div>
 
+      {/* 입력 바 — 원형 ↑ 전송 버튼 */}
       <div className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[430px] border-t border-g200 bg-white p-3">
         <div className="flex items-center gap-2">
           {/* flex 줄 안의 input — w-full min-w-0 flex-1 없으면 320px 에서 버튼이 밀려난다 */}
@@ -85,10 +134,18 @@ export default function ChatIntake({ seed, auto, onQuoted, onBack }) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && send()}
-            placeholder="예) 강남에서 서면으로 노트북 6시까지"
-            className="w-full min-w-0 flex-1 rounded-field border border-g300 px-3 py-3 text-[16px] focus-ring"
+            placeholder="메시지 입력"
+            className="w-full min-w-0 flex-1 rounded-full bg-g100 px-5 py-3.5 text-[16px] placeholder:text-g500 focus-ring"
           />
-          <Button onClick={() => send()} disabled={busy || !input.trim()}>보내기</Button>
+          <button
+            onClick={() => send()}
+            disabled={busy || !input.trim()}
+            aria-label="보내기"
+            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-[20px] font-bold
+              ${input.trim() && !busy ? 'bg-brand text-white active:bg-brand-700' : 'bg-g200 text-g500'}`}
+          >
+            ↑
+          </button>
         </div>
       </div>
     </div>
