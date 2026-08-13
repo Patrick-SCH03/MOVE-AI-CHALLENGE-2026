@@ -93,7 +93,9 @@ export default function Onboarding({ onStart }) {
           간편 로그인
         </button>
 
-        {/* 소셜 로그인 — 각 사 공식 에셋·컬러 규격. 누르면 바로 로그인 */}
+        {/* 소셜 로그인 — 각 사 공식 배포 에셋과 지정 규격을 따른다. 누르면 바로 로그인.
+            네이버: 공식 아이콘 버튼(그린 #03C75A) · 카카오: 컨테이너 #FEE500 + 공식 심볼
+            애플: HIG 검정 버튼 + 흰 로고 · 구글: 공식 원형(흰 배경 · 획 #747775) */}
         <div className="mt-5 flex items-center justify-center gap-5">
           <button onClick={login} aria-label="네이버로 로그인"
                   className="h-[52px] w-[52px] overflow-hidden rounded-full">
@@ -104,8 +106,8 @@ export default function Onboarding({ onStart }) {
             <img src="/login-kakao.png" alt="" className="h-full w-full object-cover" />
           </button>
           <button onClick={login} aria-label="Apple로 로그인"
-                  className="flex h-[52px] w-[52px] items-center justify-center rounded-full border border-g300 bg-white">
-            <img src="/login-apple.png" alt="" className="h-7 w-7 object-contain" />
+                  className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-black">
+            <img src="/login-apple-white.png" alt="" className="h-7 w-7 object-contain" />
           </button>
           <button onClick={login} aria-label="Google로 로그인" className="h-[52px] w-[52px]">
             <img src="/login-google.png" alt="" className="h-full w-full object-contain" />
