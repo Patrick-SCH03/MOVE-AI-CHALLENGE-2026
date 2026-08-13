@@ -1,3 +1,4 @@
+import QRCode from 'qrcode'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { Button, Card, Chip, Spinner } from '../Primitives'
@@ -10,11 +11,12 @@ const STEPS = [
 ]
 const STEP_INDEX = { ACCEPTED: 0, PICKED_UP: 1, ON_TRAIN: 2, COMPLETED: 3 }
 
-export default function Progress({ orderId, onBack }) {
+export default function Progress({ orderId, onBack, onHome }) {
   const [detail, setDetail] = useState(null)
   const [notif, setNotif] = useState(null)
   const [codes, setCodes] = useState({ 1: '', 2: '', 3: '' })
   const [error, setError] = useState('')
+  const [handoverOpen, setHandoverOpen] = useState(true)
   const timerRef = useRef(null)
 
   const load = useCallback(async () => {
@@ -68,10 +70,13 @@ export default function Progress({ orderId, onBack }) {
 
   return (
     <div className="min-h-screen pb-8">
-      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-g200 bg-white px-3 py-3">
-        <button onClick={onBack} className="px-1 text-[18px] text-g600">‹</button>
-        <div className="text-[16px] font-bold text-g900">배송 진행</div>
-        <span className="tnum ml-auto text-[12px] text-g500">{order.id}</span>
+      <header className="sticky top-0 z-10 bg-white px-4 pb-3 pt-5">
+        <img src="/korail-blue.png" alt="KORAIL" className="h-6" />
+        <div className="mt-2 flex items-center gap-2">
+          <button onClick={onBack} className="px-1 text-[20px] text-g600">‹</button>
+          <div className="text-[20px] font-bold text-g900">진행 상황</div>
+          <button onClick={onHome || onBack} className="ml-auto text-[15px] font-medium text-g700">처음으로</button>
+        </div>
       </header>
 
       <div className="space-y-3 p-4">
@@ -106,6 +111,15 @@ export default function Progress({ orderId, onBack }) {
               {order.status === 'COMPLETED' && <div className="text-[12px] text-ok">배송이 완료됐어요</div>}
             </div>
           </div>
+
+          {/* 확률 그라데이션 바 */}
+          {probNow != null && (
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-g200">
+              <div className="h-full rounded-full"
+                   style={{ width: `${Math.round(probNow * 100)}%`,
+                            background: 'linear-gradient(90deg,#1266e5,#00afdc)' }} />
+            </div>
+          )}
 
           {/* 스텝바 */}
           {!cancelled && (
@@ -164,48 +178,30 @@ export default function Progress({ orderId, onBack }) {
           </Card>
         )}
 
-        {/* 구간 인계 패널 */}
+        {/* 구간 인계 패널 — 각 구간의 QR/코드로 양측이 인계를 확정한다 */}
         {!cancelled && order.status !== 'COMPLETED' && (
-          <Card className="space-y-3">
-            <div className="text-[15px] font-bold text-g900">구간 인계</div>
-            {detail.legs.map((leg) => (
-              <div key={leg.seq} className="rounded-xl border border-g200 p-3">
-                <div className="flex items-center gap-2 text-[13px]">
-                  <span className="min-w-0 flex-1 truncate font-medium text-g800">{leg.label}</span>
-                  <span className="shrink-0 text-g600">{leg.carrier_name || leg.train_no}</span>
-                  {leg.handed_over ? (
-                    <Chip tone="ok">인계 {leg.handed_over_at}</Chip>
-                  ) : leg.accepted ? (
-                    <Chip tone="brand">대기</Chip>
-                  ) : (
-                    <Chip tone="warn">수락 대기</Chip>
-                  )}
-                </div>
-                {leg.fallback && leg.fallback_note && (
-                  <div className="mt-1.5 text-[12px] text-warn">{leg.fallback_note}</div>
-                )}
-                {!leg.handed_over && leg.accepted && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      value={codes[leg.seq]}
-                      onChange={(e) => setCodes((c) => ({ ...c, [leg.seq]: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
-                      placeholder="6자리 인계 코드" size={6} inputMode="numeric"
-                      className="tnum w-full min-w-0 flex-1 rounded-field border border-g300 px-3 py-2.5 text-[16px] focus-ring"
-                    />
-                    <Button
-                      kind="line"
-                      disabled={codes[leg.seq].length !== 6}
-                      onClick={() => act(async () => {
-                        await api.post('/handover', { order_id: order.id, seq: leg.seq, code: codes[leg.seq] })
-                        setCodes((c) => ({ ...c, [leg.seq]: '' }))
-                      })}
-                    >
-                      인계
-                    </Button>
-                  </div>
-                )}
+          <Card>
+            <div className="flex items-center justify-between">
+              <div className="text-[17px] font-bold text-g900">구간 인계</div>
+              <button onClick={() => setHandoverOpen(!handoverOpen)} className="text-[14px] text-g600">
+                {handoverOpen ? '닫기' : '열기'}
+              </button>
+            </div>
+            {handoverOpen && (
+              <div className="mt-1 divide-y divide-g100">
+                {detail.legs.map((leg) => (
+                  <LegHandover
+                    key={leg.seq} leg={leg} orderId={order.id}
+                    code={codes[leg.seq]}
+                    setCode={(v) => setCodes((c) => ({ ...c, [leg.seq]: v.replace(/\D/g, '').slice(0, 6) }))}
+                    onSubmit={() => act(async () => {
+                      await api.post('/handover', { order_id: order.id, seq: leg.seq, code: codes[leg.seq] })
+                      setCodes((c) => ({ ...c, [leg.seq]: '' }))
+                    })}
+                  />
+                ))}
               </div>
-            ))}
+            )}
           </Card>
         )}
 
@@ -247,6 +243,82 @@ export default function Progress({ orderId, onBack }) {
             접수 취소
           </Button>
         )}
+      </div>
+    </div>
+  )
+}
+
+// 구간 한 줄 — 담당·시각·상태 + 코드 입력 + QR 보기
+function LegHandover({ leg, orderId, code, setCode, onSubmit }) {
+  const [qrOpen, setQrOpen] = useState(false)
+  const who = leg.carrier_name || leg.train_no
+  return (
+    <div className="py-3">
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="text-[15px] font-bold text-g900">{leg.label}</div>
+          <div className="tnum mt-0.5 text-[13px] text-g500">{who} · {leg.start_at} → {leg.end_at}</div>
+        </div>
+        {leg.handed_over ? (
+          <Chip tone="ok">인계 {leg.handed_over_at}</Chip>
+        ) : leg.accepted ? (
+          <Chip tone="mute">대기</Chip>
+        ) : (
+          <Chip tone="warn">수락 대기</Chip>
+        )}
+      </div>
+      {leg.fallback && leg.fallback_note && (
+        <div className="mt-1.5 text-[12px] text-warn">{leg.fallback_note}</div>
+      )}
+      {!leg.handed_over && (
+        <>
+          <div className="mt-2.5 flex items-center gap-2">
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="6자리 인계 코드" size={6} inputMode="numeric"
+              disabled={!leg.accepted}
+              className="tnum w-full min-w-0 flex-1 rounded-field bg-g100 px-4 py-3 text-[16px] placeholder:text-g500 focus-ring disabled:opacity-60"
+            />
+            <Button
+              kind="line"
+              disabled={!leg.accepted || code.length !== 6}
+              onClick={onSubmit}
+            >
+              인계
+            </Button>
+          </div>
+          <button onClick={() => setQrOpen(!qrOpen)} className="mt-2 text-[15px] font-semibold text-brand">
+            {qrOpen ? 'QR 닫기' : 'QR 보기'}
+          </button>
+          {qrOpen && <QRPanel orderId={orderId} seq={leg.seq} code={leg.handover_code} />}
+        </>
+      )}
+    </div>
+  )
+}
+
+// QR 패널 — 양측이 서로의 QR을 스캔한다. 스캔이 어려운 환경을 위해
+// 6자리 코드를 항상 병기한다 (카메라 없는 창구 단말 대비)
+function QRPanel({ orderId, seq, code }) {
+  const [url, setUrl] = useState('')
+  useEffect(() => {
+    QRCode.toDataURL(`TP-HANDOVER:${orderId || ''}:${seq}:${code}`, { width: 220, margin: 1 })
+      .then(setUrl)
+      .catch(() => setUrl(''))
+  }, [orderId, seq, code])
+  return (
+    <div className="mt-2 flex items-center gap-4 rounded-xl bg-g50 p-4">
+      {url ? (
+        <img src={url} alt={`${seq}구간 인계 QR`} className="h-[132px] w-[132px] shrink-0 rounded-lg bg-white p-1.5" />
+      ) : (
+        <div className="flex h-[132px] w-[132px] shrink-0 items-center justify-center rounded-lg bg-white"><Spinner /></div>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="text-[14px] leading-6 text-g700">
+          양측이 서로의 QR을 스캔합니다. 스캔이 어려우면 아래 코드를 입력하세요.
+        </p>
+        <div className="tnum mt-2 text-[30px] font-bold tracking-[0.18em] text-g900">{code}</div>
       </div>
     </div>
   )
