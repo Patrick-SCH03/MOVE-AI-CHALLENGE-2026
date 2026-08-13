@@ -9,10 +9,13 @@ from dataclasses import dataclass
 
 from .. import tago
 from ..clock import service_now, to_hhmm, to_min, today_yyyymmdd, try_min
+from ..models import FALLBACK_NAMES
 from ..seed.carriers import BY_ID
 from ..seed.places import haversine_km, resolve
 from ..seed.stations import STATIONS, Station
 from . import match, probability
+# 보상은 배분표(channels.SPLIT)에서만 나온다 — 숫자를 여기 적지 않는다
+from .channels import RELAY_LEG_REWARD
 from .probability import FLOOR, LegInput
 
 DESK_CUTOFF_MIN = 30       # 창구 접수 마감 — 열차 출발 30분 전 (운영 규칙)
@@ -20,6 +23,8 @@ SAME_ZONE_KM = 40.0        # 이 미만이면 같은 생활권 — KTX 가 이�
 MAX_STATION_KM = 60.0      # 가까운 취급역이 이보다 멀면 서비스 밖
 ASSIGNED_BONUS = 0.025     # 배정 구간당 +2.5%p (두 구간 = 5%p) — 사람이 붙은 경로 선호.
                            # 5%p 넘게 나쁘면 미배정이 이긴다는 규칙의 구현
+SUGGEST_MARGIN_MIN = 10    # 데드라인 제안 = eta + 여유 — 통상 지연의 대부분을 흡수하는 폭
+SUGGEST_ROUND_MIN = 5      # 제안 시각은 5분 단위로 올림 — 17:03 같은 제안은 어색하다
 
 
 @dataclass
@@ -81,10 +86,9 @@ def _evaluate(train: tago.Train, dep_st: Station, arr_st: Station,
     ranked = match.assign(queries)
     cands = {seq: (ranked[seq][0] if ranked[seq] else None) for seq in (1, 3)}
     for seq in (1, 3):
-        if str(seq) in force or seq in force:
-            forced = _force_candidate(force.get(seq) or force.get(str(seq)))
-            if forced:
-                cands[seq] = forced
+        forced = _force_candidate(force.get(str(seq), ""))
+        if forced:
+            cands[seq] = forced
 
     leg1 = _leg_input(d1, cands[1], budget1)
     leg3 = _leg_input(d3, cands[3], budget3)
@@ -127,16 +131,13 @@ def _evaluate(train: tago.Train, dep_st: Station, arr_st: Station,
             "carrier_type": cand.carrier.type if cand else None,
         }
         if cand:
-            # 보상은 배분표(channels.SPLIT)에서만 나온다 — 숫자를 여기 적지 않는다
-            from .channels import RELAY_LEG_REWARD
             base.update(carrier_id=cand.carrier.id, carrier_name=cand.carrier.name,
                         assigned=True, fallback=False, fallback_note="",
                         match_reason=cand.reason, reward=RELAY_LEG_REWARD)
         else:
             # 미배정 — 대체 경로(집앞 픽업)로 계산했고, 화면에도 그렇게 말한다.
             # 계약 주체가 일하므로 보상 0
-            base.update(carrier_id=None,
-                        carrier_name="픽업 기사" if seq == 1 else "배송 기사",
+            base.update(carrier_id=None, carrier_name=FALLBACK_NAMES[seq],
                         assigned=False, fallback=True, reward=0,
                         fallback_note="주변에 맞는 운반자가 없어 픽업 서비스로 계산했어요. 추가 요금은 없습니다.")
         return base
@@ -180,9 +181,8 @@ def _suggestions(o_pt, d_pt, now_min, force, count=3) -> list[dict]:
     opts, _ = _options(o_pt, d_pt, 24 * 60 - 1, now_min, force)
     out, seen = [], set()
     for opt in sorted(opts, key=lambda x: x.eta_min):
-        # 열차 지연 90% 흡수에 필요한 여유를 붙여 5분 단위로 올림
-        need = opt.eta_min + 10
-        dl = math.ceil(need / 5) * 5
+        need = opt.eta_min + SUGGEST_MARGIN_MIN
+        dl = math.ceil(need / SUGGEST_ROUND_MIN) * SUGGEST_ROUND_MIN
         if dl in seen or dl >= 24 * 60:
             continue
         seen.add(dl)
@@ -196,7 +196,8 @@ def _suggestions(o_pt, d_pt, now_min, force, count=3) -> list[dict]:
 def build(origin: str, destination: str, deadline: str,
           now: str | None = None, force_carriers: dict | None = None,
           with_suggestions: bool = True) -> dict:
-    force = force_carriers or {}
+    # 키를 문자열로 정규화 — 라우터(JSON)는 "1", 내부 호출은 1 로 준다
+    force = {str(k): v for k, v in (force_carriers or {}).items()}
     now_min = try_min(now) if now else service_now()
     if now_min is None:
         now_min = service_now()

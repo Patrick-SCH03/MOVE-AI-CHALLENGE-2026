@@ -10,8 +10,8 @@ from datetime import timedelta
 
 from sqlmodel import Session, select
 
-from .clock import service_now, to_hhmm, to_min, utc_naive_now
-from .models import STATUS_LABELS, Call, Leg, Order, ProofEvent
+from .clock import now_kst, service_now, to_hhmm, to_min, utc_naive_now
+from .models import FALLBACK_NAMES, STATUS_LABELS, Call, Leg, Order, ProofEvent
 from .seed.carriers import BY_ID
 from .seed.places import haversine_km, resolve
 from .seed.stations import BY_CODE
@@ -21,9 +21,6 @@ from .tools.probability import LegInput
 
 CALL_TIMEOUT_SEC = 90   # 우버는 15초지만 우리 운반자는 출근길에 걷고 있다
 
-# 대체 경로 담당 표시명 — 한 곳에만 적는다. 화면·채널·전환이 전부 이 이름을 쓴다
-FALLBACK_NAMES = {1: "픽업 기사", 3: "배송 기사"}
-
 PROOF_MEANING = {
     "RECEIVED": "물품이 실재하며 발송 절차가 개시됨",
     "IN_TRANSIT": "역 창구 인계 · 열차 탑재, 간선 운송 중",
@@ -31,12 +28,31 @@ PROOF_MEANING = {
 }
 
 
+# 역 수령(창구 직접 수령) 라스트마일 — 창구까지 걸어가 수령 대기하는 정도의 구간
+STATION_PICKUP_WAIT_MIN = 5
+_STATION_PICKUP_KM = 0.2
+_STATION_PICKUP_RELIABILITY = 0.97
+
+# 알림 확률 화살표 — 이보다 작은 변화는 평평하게 그린다 (소수점 노이즈)
+TREND_EPS = 0.005
+
+
 def demo_mode() -> bool:
     return os.getenv("DEMO_MODE", "").lower() == "true"
 
 
+def _plan(order: Order) -> dict:
+    """확정 시점 경로 스냅샷 — 고지한 내용 자체가 증거라 DB 의 JSON 을 그대로 읽는다."""
+    return json.loads(order.plan_json)
+
+
+def _station_pickup_leg(budget_min: float) -> LegInput:
+    """역 수령으로 전환했을 때의 ③구간 — 두 곳(입력 복원·지연 대안)이 같은 값을 써야
+    '전환하면 몇 %'와 전환 후 화면의 확률이 어긋나지 않는다."""
+    return LegInput(_STATION_PICKUP_KM, "도보", _STATION_PICKUP_RELIABILITY, budget_min)
+
+
 def new_order_id(s: Session) -> str:
-    from .clock import now_kst
     day = now_kst().strftime("%y%m%d")
     n = len(s.exec(select(Order.id)).all()) + 1
     return f"TP{day}{n:04d}"
@@ -69,7 +85,7 @@ def to_fallback(leg: Leg, reason: str):
 # ── 배차 콜 ────────────────────────────────────────────────────────────
 def _leg_query(order: Order, leg: Leg) -> match.LegQuery | None:
     """콜 후보 재계산용 쿼리 — 계획 스냅샷에서 좌표·시각을 복원한다."""
-    plan = json.loads(order.plan_json)
+    plan = _plan(order)
     o_pt, d_pt = resolve(order.origin), resolve(order.destination)
     dep = BY_CODE.get(plan.get("dep_code", ""))
     arr = BY_CODE.get(plan.get("arr_code", ""))
@@ -264,25 +280,37 @@ def create_order(s: Session, plan: dict, body: dict, fare: int) -> tuple[Order, 
 # ── 알림 타임라인 ──────────────────────────────────────────────────────
 def _leg3_input(order: Order, extra_budget_cut: float = 0.0) -> LegInput:
     """운송 중 확률 계산용 ③구간 입력 — 계획 스냅샷에서 복원한다."""
-    plan = json.loads(order.plan_json)
+    plan = _plan(order)
     arr_st = BY_CODE.get(plan["arr_code"])
     d_pt = resolve(order.destination)
     dist = haversine_km((arr_st.lat, arr_st.lon), d_pt) if (arr_st and d_pt) else 3.0
-    leg3 = plan["legs"][2]
-    carrier = BY_ID.get(leg3.get("carrier_id") or "")
+    carrier = BY_ID.get(plan["legs"][2].get("carrier_id") or "")
     train_arr = to_min(plan["legs"][1]["end_at"])
     budget = to_min(order.deadline) - train_arr - extra_budget_cut
     if order.pickup_mode == "station":
-        # 역 수령 — 라스트마일이 창구 수령 대기(약 5분)로 줄어든다
-        return LegInput(0.2, "도보", 0.97, budget)
+        return _station_pickup_leg(budget)
     if carrier:
         return LegInput(dist, carrier.mode, carrier.reliability, budget)
     return probability.fallback_leg(dist, budget)
 
 
+def _delay_action(order: Order, train_arr: int, delay: int) -> str:
+    """지연 알림에 붙는 대안 문구 — 문전 수령 건에만 역 수령 전환을 제안한다."""
+    if order.pickup_mode != "door":
+        return ""
+    station_eta = train_arr + delay + STATION_PICKUP_WAIT_MIN
+    if to_hhmm(station_eta) > order.deadline:
+        return (f"{order.deadline}까지는 어렵습니다. 역 수령 시 "
+                f"{to_hhmm(station_eta)}이 가장 빠릅니다.")
+    p_st = probability.in_transit_probability(
+        _station_pickup_leg(to_min(order.deadline) - train_arr), float(delay))
+    return (f"도착역에서 직접 수령하면 시간을 맞출 수 있어요 "
+            f"(도착 {to_hhmm(station_eta)} · {p_st * 100:.0f}%)")
+
+
 def notifications(s: Session, order: Order) -> dict:
     """접수부터 현재까지 — 아직 일어나지 않은 일은 알리지 않는다 (기록이지 시나리오가 아니다)."""
-    plan = json.loads(order.plan_json)
+    plan = _plan(order)
     legs = {leg.seq: leg for leg in s.exec(select(Leg).where(Leg.order_id == order.id)).all()}
     train_arr = to_min(plan["legs"][1]["end_at"])
     out: list[dict] = []
@@ -318,25 +346,14 @@ def notifications(s: Session, order: Order) -> dict:
             # 지연 후 갈래 — 지연 전과 같은 분포 함수를 부른다 (in_transit_probability)
             eta_d = eta0 + delay
             p_d = probability.in_transit_probability(_leg3_input(order), float(delay))
-            action = ""
-            if order.pickup_mode == "door":
-                # 역 수령 전환 대안 — 라스트마일 55분→5분급으로 준다
-                station_eta = train_arr + delay + 5
-                if to_hhmm(station_eta) <= order.deadline:
-                    p_st = probability.in_transit_probability(
-                        LegInput(0.2, "도보", 0.97, to_min(order.deadline) - train_arr), float(delay))
-                    action = (f"도착역에서 직접 수령하면 시간을 맞출 수 있어요 "
-                              f"(도착 {to_hhmm(station_eta)} · {p_st * 100:.0f}%)")
-                else:
-                    action = (f"{order.deadline}까지는 어렵습니다. 역 수령 시 "
-                              f"{to_hhmm(station_eta)}이 가장 빠릅니다.")
             add("DELAY", "지연 안내", to_hhmm(service_now()),
                 f"열차가 {delay}분 지연되고 있어요. 도착 예정이 {to_hhmm(eta_d)}로 밀렸어요.",
-                eta=to_hhmm(eta_d), prob=round(p_d, 4), action=action)
+                eta=to_hhmm(eta_d), prob=round(p_d, 4),
+                action=_delay_action(order, train_arr, delay))
             eta_now, prob_now = to_hhmm(eta_d), round(p_d, 4)
 
         if order.pickup_mode == "station" and not legs[3].handed_over:
-            eta_st = train_arr + delay + 5
+            eta_st = train_arr + delay + STATION_PICKUP_WAIT_MIN
             p_st = probability.in_transit_probability(_leg3_input(order), float(delay) if delay else None)
             add("RECOVERED", "역 수령 전환", to_hhmm(service_now()),
                 f"{plan['arr_station']} 창구에서 직접 수령으로 바꿨어요. 도착하면 바로 받을 수 있어요.",
@@ -352,13 +369,13 @@ def notifications(s: Session, order: Order) -> dict:
     if order.status == "CANCELLED":
         add("CANCELLED", "접수 취소", to_hhmm(service_now()), "접수가 취소됐어요.")
 
-    # 화살표 — 직전 값과 비교해서 정한다. 문턱 0.005
+    # 화살표 — 직전 값과 비교해서 정한다
     prev = None
     for n in out:
         if n["probability"] is None:
             n["trend"] = "flat"
             continue
-        if prev is None or abs(n["probability"] - prev) < 0.005:
+        if prev is None or abs(n["probability"] - prev) < TREND_EPS:
             n["trend"] = "flat"
         else:
             n["trend"] = "up" if n["probability"] > prev else "down"

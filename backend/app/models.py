@@ -17,6 +17,8 @@ STATUS_LABELS = {"ACCEPTED": "접수 완료", "PICKED_UP": "수취 완료", "ON_
                  "COMPLETED": "배송 완료", "CANCELLED": "취소됨"}
 CHANNEL_LABELS = {"desk": "KTX특송 창구", "locker": "역사 무인함", "relay": "시민 운반",
                   "fullmile": "기사 방문 픽업"}
+# 대체 경로(계약 사업자) 담당 표시명 — 경로 계산(route)과 전환(orderflow)이 같은 이름을 쓴다
+FALLBACK_NAMES = {1: "픽업 기사", 3: "배송 기사"}
 
 
 class Order(SQLModel, table=True):
