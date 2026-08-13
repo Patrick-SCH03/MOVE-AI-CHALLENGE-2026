@@ -75,13 +75,23 @@ export default function Onboarding({ onStart }) {
         간편 로그인
       </button>
 
+      {/* 소셜 로그인 — 각 사 공식 에셋·컬러 규격. 데모라 누르면 바로 로그인된다 */}
       <div className="mt-8 flex items-center justify-center gap-5">
         <button onClick={login} aria-label="네이버로 로그인"
-                className="flex h-16 w-16 items-center justify-center rounded-full bg-[#03c75a] text-[26px] font-extrabold text-white">N</button>
+                className="h-14 w-14 overflow-hidden rounded-full">
+          <img src="/login-naver.png" alt="" className="h-full w-full object-cover" />
+        </button>
         <button onClick={login} aria-label="카카오로 로그인"
-                className="flex h-16 w-16 items-center justify-center rounded-full bg-[#fee500] text-[26px]">💬</button>
+                className="h-14 w-14 overflow-hidden rounded-full bg-[#fee500]">
+          <img src="/login-kakao.png" alt="" className="h-full w-full object-cover" />
+        </button>
         <button onClick={login} aria-label="Apple로 로그인"
-                className="flex h-16 w-16 items-center justify-center rounded-full bg-black text-[26px] text-white"></button>
+                className="flex h-14 w-14 items-center justify-center rounded-full border border-g300 bg-white">
+          <img src="/login-apple.png" alt="" className="h-8 w-8 object-contain" />
+        </button>
+        <button onClick={login} aria-label="Google로 로그인" className="h-14 w-14">
+          <img src="/login-google.png" alt="" className="h-full w-full object-contain" />
+        </button>
       </div>
 
       <p className="mt-auto pt-10 text-center text-[13px] leading-5 text-g500">
