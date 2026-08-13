@@ -147,6 +147,13 @@ export default function Home({ onQuote, onTalk, onQuick, activeOrder, onOpenOrde
           <h1 className="mt-4 text-[22px] font-bold leading-[1.35] tracking-[-0.04em] text-white">
             역에 가지 않고 오늘 안에 보냅니다
           </h1>
+          {/* 특일 배지 — 서버가 특일 API(한국천문연구원)로 판정. 공휴일엔
+              시민 운반 매칭 가정이 달라진다는 사실을 접수 전에 알린다 */}
+          {live?.special_day && (
+            <span className="mt-2.5 inline-flex items-center gap-1.5 rounded-chip bg-white/15 px-3 py-1.5 text-[12px] font-bold text-white">
+              오늘은 {live.special_day.name} — 시민 운반 매칭에 여유를 더 봐요
+            </span>
+          )}
         </div>
       </div>
 
