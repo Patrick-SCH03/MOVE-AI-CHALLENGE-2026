@@ -75,6 +75,28 @@ export function Skeleton({ className = '' }) {
   return <div className={`animate-pulse rounded-lg bg-g200 ${className}`} />
 }
 
+// 라인 아이콘 세트 — 이모지는 기기마다 렌더가 달라 시연이 흔들린다.
+// 탭바와 같은 스트로크 스타일로 화면 전체의 아이콘 언어를 통일한다.
+const ICON_PATHS = {
+  doc: <><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 8h8M8 12h8M8 16h5" /></>,
+  box: <><path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z" /><path d="M3.5 7.5 12 12l8.5-4.5" /><path d="M12 12v9" /></>,
+  boxBig: <><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M9 12h6" /></>,
+  search: <><rect x="3" y="6" width="12" height="11" rx="2" /><path d="M6 10h6M6 13h4" /><circle cx="17" cy="16" r="3.4" /><path d="m19.5 18.5 2 2" /></>,
+  runner: <><circle cx="13" cy="4.6" r="2" /><path d="M9 20.5 11 15l-2.4-2 1-4.6 2.6-1 2.8 2.4 3 .6" /><path d="m11.2 12.6 3 2.9 1.4 5" /></>,
+  card: <><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="M3 10h18" /><path d="M7 15h4" /></>,
+  headset: <><path d="M4 13a8 8 0 0 1 16 0" /><rect x="3" y="13" width="4" height="6" rx="1.6" /><rect x="17" y="13" width="4" height="6" rx="1.6" /><path d="M20 19a3 3 0 0 1-3 3h-3" /></>,
+  chat: <><path d="M21 12a8 8 0 0 1-8 8H4l2.2-3A8 8 0 1 1 21 12z" /><path d="M8.5 12h.01M12 12h.01M15.5 12h.01" /></>,
+}
+
+export function Icon({ name, size = 24, className = '' }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor"
+         strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      {ICON_PATHS[name]}
+    </svg>
+  )
+}
+
 // 확률 막대 — 채널 카드·구간 카드 공용
 export function ProbBar({ p, className = '' }) {
   const pct = Math.round((p || 0) * 100)

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
-import { Card, Skeleton } from '../Primitives'
+import { Card, Icon, Skeleton } from '../Primitives'
 
 // 자주 보내는 경로 — 폼을 채우는 칩
 const FAVORITES = [
@@ -144,7 +144,9 @@ export default function Home({ onIntake, onHistory }) {
           className="cursor-pointer active:bg-g50"
         >
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-50 text-[22px]">💬</div>
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand">
+              <Icon name="chat" size={24} />
+            </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
                 <span className="text-[17px] font-bold text-g900">AI 접수 도우미</span>
@@ -158,17 +160,19 @@ export default function Home({ onIntake, onHistory }) {
           </div>
         </Card>
 
-        {/* 빠른 메뉴 — 코레일톡의 연한 파랑 아이콘 타일 */}
+        {/* 빠른 메뉴 — 코레일톡의 연한 파랑 아이콘 타일. 아이콘은 라인 SVG 로 통일 */}
         <Card>
           <div className="grid grid-cols-4 gap-2">
             {[
-              ['📦', '배송 조회', () => onHistory()],
-              ['🚶', '운반자 지원', () => { window.location.search = '?view=carrier' }],
-              ['💳', '요금 안내', () => document.getElementById('fare-card')?.scrollIntoView({ behavior: 'smooth' })],
-              ['🎧', '고객센터', () => {}],
+              ['search', '배송 조회', () => onHistory()],
+              ['runner', '운반자 지원', () => { window.location.search = '?view=carrier' }],
+              ['card', '요금 안내', () => document.getElementById('fare-card')?.scrollIntoView({ behavior: 'smooth' })],
+              ['headset', '고객센터', () => {}],
             ].map(([icon, label, fn]) => (
               <button key={label} onClick={fn} className="flex flex-col items-center gap-1.5">
-                <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#eaf2fe] text-[26px]">{icon}</span>
+                <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#eaf2fe] text-brand">
+                  <Icon name={icon} size={28} />
+                </span>
                 <span className="text-[13px] font-medium text-g800">{label}</span>
               </button>
             ))}
@@ -221,13 +225,15 @@ export default function Home({ onIntake, onHistory }) {
             <div className="text-center text-[19px] font-bold">
               <span className="text-brand">KTX 당일배송</span> <span className="text-g900">요금 안내</span>
             </div>
-            {/* 대표 규격 3종 타일 — 역 짐배송 안내 카드 패턴 */}
+            {/* 대표 규격 3종 타일 — 역 짐배송 안내 카드 패턴. 아이콘은 라인 SVG */}
             <div className="mt-4 grid grid-cols-3 gap-2">
               {[
-                ['🎒', tariff.tiers[0]], ['🧳', tariff.tiers[2]], ['🛄', tariff.tiers[4]],
+                ['doc', tariff.tiers[0]], ['box', tariff.tiers[2]], ['boxBig', tariff.tiers[4]],
               ].map(([icon, t]) => t && (
                 <div key={t.name} className="flex flex-col items-center rounded-2xl bg-[#eaf2fe]/60 py-3">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-[22px] shadow-card">{icon}</span>
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-brand shadow-card">
+                    <Icon name={icon} size={24} />
+                  </span>
                   <div className="mt-1.5 text-[13px] font-bold text-g900">{t.name}</div>
                   <div className="tnum text-[13px] text-g700">{t.fare.toLocaleString()}원~</div>
                 </div>
