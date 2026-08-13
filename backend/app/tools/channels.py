@@ -7,7 +7,7 @@
 """
 from dataclasses import dataclass
 
-from .. import tago
+from .. import specialday, tago
 from ..clock import to_hhmm, to_min, today_yyyymmdd
 from ..seed import tariff
 from . import probability
@@ -37,6 +37,9 @@ RELAY_LEAD_DEFAULT = 130      # 계획이 없을 때 대표값: ①구간 실소
 PICKUP_AFTER = {"desk": 55, "locker": 55, "relay": 15, "fullmile": 15}
 
 MATCH_RISK = 0.05             # 시민 운반 매칭 실패 리스크 — 가정 (파일럿 실측 대상)
+# 공휴일(특일 API 실데이터 판정)은 출퇴근 이동 자체가 사라진다 — 시민 운반의
+# 공급이 통근 동선이므로 매칭 리스크 가정을 올린다. 계수는 가정값
+HOLIDAY_MATCH_RISK = 0.08
 LOCKER_RISK = 0.03            # 무인함 회수 주기 대기 리스크 — 가정
 
 NAMES = {"desk": "KTX특송 창구", "locker": "역사 무인함", "relay": "시민 운반",
@@ -151,10 +154,15 @@ def compare(plan: dict, item: str | None, declared_value: int | None,
             p = cap(p1 * p_train * p3)
         else:  # relay — 계획의 종합확률에 매칭 리스크를 얹어 범위로 말한다
             p_base = plan["combined_probability"] if plan.get("feasible") else 0.0
-            p = cap(p_base * (1 - MATCH_RISK))
+            holiday = specialday.today_special()
+            risk = HOLIDAY_MATCH_RISK if holiday else MATCH_RISK
+            p = cap(p_base * (1 - risk))
             lo, hi = cap(p - 0.04), cap(p + 0.04)
             card["probability_label"] = f"{lo * 100:.0f}~{hi * 100:.0f}"
             card["probability_note"] = "매칭 후 확정"
+            if holiday:
+                card["note"] = (NOTES["relay"]
+                                + f" 오늘은 {holiday['name']} — 통근 동선이 줄어 매칭 여유를 더 봐요.")
 
         # relay 는 계획이 이미 편성·eta 를 골랐다 — 카드가 계획과 다른 말을 하면 안 된다
         if ch == "relay" and plan.get("feasible"):

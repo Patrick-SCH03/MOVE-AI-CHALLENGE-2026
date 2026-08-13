@@ -5,6 +5,7 @@ from datetime import timedelta
 from fastapi import APIRouter
 from sqlmodel import Session, select
 
+from .. import specialday
 from ..clock import kst_day_start_utc
 from ..db import engine
 from ..models import Order
@@ -33,6 +34,8 @@ def live():
 
     done_all = [o for o in orders if o.status == "COMPLETED"]
     return {
+        # 특일(공휴일) — 홈 배지용. 실데이터(한국천문연구원 특일 API) 판정
+        "special_day": specialday.today_special(),
         "today_orders": len(today),
         "today_count": len(today),   # 홈 화면 표기용 별칭
         "in_transit": len(in_transit),
