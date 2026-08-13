@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { Card } from '../Primitives'
 
-export default function MyTab({ name, onRename, onReset }) {
+export default function MyTab({ name, onRename, onReset, onTerms }) {
   const [live, setLive] = useState(null)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(name || '')
@@ -86,7 +86,7 @@ export default function MyTab({ name, onRename, onReset }) {
           </a>
         </Card>
 
-        <Card>
+        <Card role="button" onClick={onTerms} className="cursor-pointer active:bg-g50">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-[16px] font-bold text-g900">약관 · 정책</div>

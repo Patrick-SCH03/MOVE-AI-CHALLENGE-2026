@@ -8,6 +8,7 @@ import MyTab from './screens/MyTab'
 import Onboarding from './screens/Onboarding'
 import OpsView from './screens/OpsView'
 import Progress from './screens/Progress'
+import TermsView from './screens/TermsView'
 
 // 화면 이동 규칙 — 뒤로가기는 온 길로 돌아간다.
 // 상태를 step 하나로만 들면 목록에서 연 진행 화면에서 뒤로 눌렀을 때
@@ -90,6 +91,7 @@ export default function App() {
             {tab === 'my' && (
               <MyTab
                 name={name}
+                onTerms={() => push({ name: 'terms' })}
                 onRename={(n) => { localStorage.setItem(NAME_KEY, n); setName(n) }}
                 onReset={() => {
                   localStorage.removeItem(NAME_KEY)
@@ -128,12 +130,14 @@ export default function App() {
 }
 
 function FlowScreen({ screen, push, pop, resetTo }) {
+  const goHome = () => resetTo([])   // 처음으로 — 접수 흐름을 비우고 홈 탭으로
   if (screen.name === 'intake') {
     return (
       <ChatIntake
         seed={screen.seed}
         auto={screen.auto}
         onBack={pop}
+        onHome={goHome}
         onQuoted={(quote) => push({ name: 'compare', quote })}
       />
     )
@@ -148,7 +152,10 @@ function FlowScreen({ screen, push, pop, resetTo }) {
     )
   }
   if (screen.name === 'progress') {
-    return <Progress orderId={screen.orderId} onBack={pop} />
+    return <Progress orderId={screen.orderId} onBack={pop} onHome={goHome} />
+  }
+  if (screen.name === 'terms') {
+    return <TermsView onBack={pop} />
   }
   return null
 }
