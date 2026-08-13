@@ -177,7 +177,16 @@ def _options(o_pt, d_pt, deadline_min, now_min, force) -> tuple[list[_Option], b
 
 
 def _suggestions(o_pt, d_pt, now_min, force, count=3) -> list[dict]:
-    """가능한 데드라인 제안 — 실제 계획을 넉넉한 데드라인으로 세워 그 eta 에서 뽑는다."""
+    """가능한 데드라인 제안 — 실제 계획을 넉넉한 데드라인으로 세워 eta 에서 뽑되,
+    제안할 데드라인으로 그 편성을 **다시 평가해 성립하는 것만** 내보낸다.
+
+    여유가 줄면 ③예산이 좁아져 같은 편성도 확률 하한 아래로 떨어질 수 있다 —
+    특히 밤 시간대는 운반자 활동이 끝나 대체 경로(+25분)로 계산되므로 eta+10분이
+    안 성립한다. 검증 없이 내보냈더니 "21:10까지는 어려워요. 21:10으로 잡으시면
+    보낼 수 있어요"라는 자기모순 안내가 실제로 나갔다.
+
+    같은 데드라인은 eta 가 가장 이른 편성(여유 최대)으로만 한 번 검증한다 —
+    그 편성이 안 되면 더 늦게 도착하는 편성은 더 안 된다."""
     opts, _ = _options(o_pt, d_pt, 24 * 60 - 1, now_min, force)
     out, seen = [], set()
     for opt in sorted(opts, key=lambda x: x.eta_min):
@@ -186,8 +195,11 @@ def _suggestions(o_pt, d_pt, now_min, force, count=3) -> list[dict]:
         if dl in seen or dl >= 24 * 60:
             continue
         seen.add(dl)
-        out.append({"deadline": to_hhmm(dl), "eta": to_hhmm(opt.eta_min),
-                    "train_no": opt.train.no, "label": to_hhmm(dl)})
+        v = _evaluate(opt.train, opt.dep_st, opt.arr_st, o_pt, d_pt, dl, now_min, force)
+        if v is None or v.combined < FLOOR:
+            continue
+        out.append({"deadline": to_hhmm(dl), "eta": to_hhmm(v.eta_min),
+                    "train_no": v.train.no, "label": to_hhmm(dl)})
         if len(out) >= count:
             break
     return out
