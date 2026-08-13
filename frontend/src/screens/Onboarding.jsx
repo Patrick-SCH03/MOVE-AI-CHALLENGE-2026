@@ -22,7 +22,11 @@ export default function Onboarding({ onStart }) {
     <div className="flex min-h-screen flex-col text-white" style={{ background: "var(--header)" }}>
       {/* 히어로 */}
       <div className="px-6 pb-10 pt-10">
-        <img src="/korail-white.png" alt="KORAIL" className="h-8" />
+        <div className="flex items-start justify-between">
+          <img src="/korail-white.png" alt="KORAIL" className="h-8" />
+          {/* 앱 심볼 — 히어로도 파란색이라 옅은 링으로만 경계를 준다 */}
+          <img src="/app-icon.png" alt="" className="h-11 w-11 rounded-[24%] ring-1 ring-white/30" />
+        </div>
         <h1 className="mt-7 text-[38px] font-bold leading-[1.15] tracking-[-0.02em]">
           KTX<br />당일배송
         </h1>
@@ -100,7 +104,7 @@ export default function Onboarding({ onStart }) {
         <div className="mt-5 flex items-center justify-center gap-4">
           {[
             ["네이버로 로그인", <img key="n" src="/login-naver.png" alt="" className="h-full w-full object-cover" />, ""],
-            ["카카오로 로그인", <img key="k" src="/login-kakao.png" alt="" className="h-full w-full object-cover" />, "bg-[#fee500]"],
+            ["카카오로 로그인", <img key="k" src="/login-kakao.png" alt="" className="h-6 w-6 object-contain" />, "bg-[#fee500]"],
             ["Apple로 로그인", <img key="a" src="/login-apple-white.png" alt="" className="h-6 w-6 object-contain" />, "bg-black"],
             ["Google로 로그인", <img key="g" src="/login-google.png" alt="" className="h-full w-full object-contain" />, ""],
           ].map(([label, img, bg]) => (
