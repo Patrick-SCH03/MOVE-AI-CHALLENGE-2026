@@ -1,0 +1,8 @@
+# <타입>(<범위>): <제목 — 명사형 종결 "~을 추가", "~로 교체">
+#
+# 왜:
+#
+# 검증:
+#
+# 타입: feat fix refactor perf data docs test style chore
+# 범위: backend frontend engine seed deploy ci docs
