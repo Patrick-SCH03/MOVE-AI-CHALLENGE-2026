@@ -56,7 +56,7 @@ KTX특송은 이미 빠릅니다. 서울에서 부산까지 3시간이면 화물
 
 ### Back-end
 
-<img src="https://skillicons.dev/icons?i=fastapi,sqlite,docker,railway" height="48" />
+<img src="https://skillicons.dev/icons?i=fastapi,sqlite,docker" height="48" /> <img src="frontend/public/railway.png" height="48" alt="Railway" />
 
 **FastAPI** · **SQLModel**<br/>
 **SQLite** · **Docker**<br/>
