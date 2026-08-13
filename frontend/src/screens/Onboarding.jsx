@@ -13,13 +13,13 @@ export default function Onboarding({ onStart }) {
   const [live, setLive] = useState(null)
 
   useEffect(() => {
-    api.get('/live').then(setLive).catch(() => {})
+    api.live().then(setLive).catch(() => {})
   }, [])
 
   const login = () => onStart(id.trim())
 
   return (
-    <div className="header-gradient flex min-h-screen flex-col text-white">
+    <div className="flex min-h-screen flex-col text-white" style={{ background: "var(--header)" }}>
       {/* 히어로 */}
       <div className="px-6 pb-10 pt-10">
         <img src="/korail-white.png" alt="KORAIL" className="h-8" />
@@ -93,25 +93,25 @@ export default function Onboarding({ onStart }) {
           간편 로그인
         </button>
 
-        {/* 소셜 로그인 — 각 사 공식 배포 에셋과 지정 규격을 따른다. 누르면 바로 로그인.
-            네이버: 공식 아이콘 버튼(그린 #03C75A) · 카카오: 컨테이너 #FEE500 + 공식 심볼
-            애플: HIG 검정 버튼 + 흰 로고 · 구글: 공식 원형(흰 배경 · 획 #747775) */}
-        <div className="mt-5 flex items-center justify-center gap-5">
-          <button onClick={login} aria-label="네이버로 로그인"
-                  className="h-[52px] w-[52px] overflow-hidden rounded-full">
-            <img src="/login-naver.png" alt="" className="h-full w-full object-cover" />
-          </button>
-          <button onClick={login} aria-label="카카오로 로그인"
-                  className="h-[52px] w-[52px] overflow-hidden rounded-full bg-[#fee500]">
-            <img src="/login-kakao.png" alt="" className="h-full w-full object-cover" />
-          </button>
-          <button onClick={login} aria-label="Apple로 로그인"
-                  className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-black">
-            <img src="/login-apple-white.png" alt="" className="h-7 w-7 object-contain" />
-          </button>
-          <button onClick={login} aria-label="Google로 로그인" className="h-[52px] w-[52px]">
-            <img src="/login-google.png" alt="" className="h-full w-full object-contain" />
-          </button>
+        {/* 소셜 로그인 — 각 사 공식 배포 에셋과 지정 컬러를 따르되, 줄 전체는
+            동일 지름 원형 + 균등 간격으로 통일한다(뱃지 크기가 제각각이면 줄이 어수선하다).
+            네이버 그린 #03C75A · 카카오 #FEE500 · 애플 HIG 검정+흰 로고 ·
+            구글 공식 원형(흰 배경·획 #747775). 누르면 바로 로그인(데모). */}
+        <div className="mt-5 flex items-center justify-center gap-4">
+          {[
+            ["네이버로 로그인", <img key="n" src="/login-naver.png" alt="" className="h-full w-full object-cover" />, ""],
+            ["카카오로 로그인", <img key="k" src="/login-kakao.png" alt="" className="h-full w-full object-cover" />, "bg-[#fee500]"],
+            ["Apple로 로그인", <img key="a" src="/login-apple-white.png" alt="" className="h-6 w-6 object-contain" />, "bg-black"],
+            ["Google로 로그인", <img key="g" src="/login-google.png" alt="" className="h-full w-full object-contain" />, ""],
+          ].map(([label, img, bg]) => (
+            <button
+              key={label} onClick={login} aria-label={label}
+              className={`focus-ring flex h-12 w-12 shrink-0 items-center justify-center
+                overflow-hidden rounded-full ${bg} transition active:brightness-95`}
+            >
+              {img}
+            </button>
+          ))}
         </div>
 
         <button onClick={() => onStart('')} className="mt-5 w-full text-center text-[15px] font-semibold text-g700">

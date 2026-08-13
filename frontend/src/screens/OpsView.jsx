@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api'
-import { Card, Chip, Spinner } from '../Primitives'
+import { Card, Chip, Spinner } from '../components/Primitives'
 
 // 운영자 화면 (?view=ops) — 특송의 운영 단위는 건이 아니라 역이다.
 const GRADE_TONE = { '실측': 'ok', '실시간 API': 'brand', '실측 기반 · 변환 가정': 'warn', '가정': 'warn', '가상 데이터': 'mute' }
 const CH_LABEL = { desk: 'KTX특송 창구', locker: '역사 무인함', relay: '시민 운반', fullmile: '기사 방문 픽업' }
 const CH_COLOR = { desk: '#1266e5', relay: '#00afdc', locker: '#7c5cff', fullmile: '#f59e0b' }
 
-export default function OpsView() {
+// embedded=true 면 App 이 헤더를 그려 주므로 자체 헤더를 접는다
+export default function OpsView({ embedded = false }) {
   const [board, setBoard] = useState(null)
   const [live, setLive] = useState(null)
   const [prov, setProv] = useState(null)
@@ -15,13 +16,13 @@ export default function OpsView() {
   const [showStations, setShowStations] = useState(false)
 
   const load = useCallback(() => {
-    api.get('/ops/board').then(setBoard).catch(() => {})
-    api.get('/live').then(setLive).catch(() => {})
+    api.opsBoard().then(setBoard).catch(() => {})
+    api.live().then(setLive).catch(() => {})
   }, [])
 
   useEffect(() => {
     load()
-    api.get('/provenance').then(setProv).catch(() => {})
+    api.provenance().then(setProv).catch(() => {})
     const t = setInterval(load, 3000)   // 배차 현황 3초 폴링
     return () => clearInterval(t)
   }, [load])
@@ -34,16 +35,18 @@ export default function OpsView() {
   const stations = showStations ? board.stations : board.stations.slice(0, 5)
 
   return (
-    <div className="mx-auto min-h-screen max-w-[520px] bg-g100 pb-10">
-      <div className="bg-white px-4 pb-4 pt-5">
-        <div className="flex items-center gap-2">
-          <img src="/korail-blue.png" alt="KORAIL" className="h-6" />
-          <span className="rounded-full bg-g900 px-2.5 py-1 text-[12px] font-bold text-white">운영자</span>
-          <button onClick={() => window.close()} className="ml-auto text-[15px] text-g600">닫기</button>
+    <div className={embedded ? "pb-10" : "mx-auto min-h-screen max-w-[520px] bg-g100 pb-10"}>
+      {!embedded && (
+        <div className="bg-white px-4 pb-4 pt-5">
+          <div className="flex items-center gap-2">
+            <img src="/korail-blue.png" alt="KORAIL" className="h-6" />
+            <span className="rounded-full bg-g900 px-2.5 py-1 text-[12px] font-bold text-white">운영자</span>
+            <button onClick={() => window.close()} className="ml-auto text-[15px] text-g600">닫기</button>
+          </div>
+          <h1 className="mt-3 text-[24px] font-bold text-g900">운영 현황</h1>
+          <p className="mt-1 text-[14px] text-g500">코레일 운영자용 화면입니다. 발송인에게는 보이지 않습니다.</p>
         </div>
-        <h1 className="mt-3 text-[24px] font-bold text-g900">운영 현황</h1>
-        <p className="mt-1 text-[14px] text-g500">코레일 운영자용 화면입니다. 발송인에게는 보이지 않습니다.</p>
-      </div>
+      )}
 
       <div className="space-y-3 p-4">
         {/* 오늘 물량 */}

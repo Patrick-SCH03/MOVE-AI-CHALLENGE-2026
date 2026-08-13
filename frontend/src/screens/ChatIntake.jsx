@@ -1,218 +1,231 @@
-import { useEffect, useRef, useState } from 'react'
-import { api } from '../api'
-import { Card, Chip, Icon, Spinner } from '../Primitives'
+import React, { useEffect, useRef, useState } from "react";
+import { won } from "../api";
+import { Button, Chip, Spinner, VERDICT } from "../components/Primitives";
 
-// AI 접수 도우미 — 홈의 진입 카드와 같은 이름. 문과 안의 이름이 다르면 길을 잃는다.
-// 예시 3번(휘발유)은 금지품 차단 시연용 — 눌러 보면 즉시 BLOCKED 카드가 나온다.
-const EXAMPLES = [
-  '오늘 저녁 7시까지 부산 서면으로 노트북 도착해야 해',
-  '강남에서 해운대로 도자기 화병 저녁 8시까지 40만원',
-  '서울역에서 대전으로 휘발유 한 통 오늘 안에',
-]
+/* 1 / 3 — 접수하기
+   대화로 받는다. 폼을 채우게 하지 않는다.
+   부족한 항목이 있으면 한 번에 하나씩만 되묻는다. */
 
-export default function ChatIntake({ seed, auto, onQuoted, onBack, onHome }) {
-  const [messages, setMessages] = useState([])
-  const [input, setInput] = useState(seed || '')
-  const [busy, setBusy] = useState(false)
-  const [prior, setPrior] = useState(null)
-  const historyRef = useRef([])
-  const bottomRef = useRef(null)
-  const autoSentRef = useRef(false)
+/* 샘플은 반드시 끝까지 도달하는 것만 둔다.
+   눌렀는데 "특송 취급 열차가 없습니다"로 끝나면 그 자리에서 신뢰를 잃는다.
+   (시드의 특송 취급 열차는 경부선·전라선 일부 편성뿐이다) */
+const SAMPLES = [
+  "오늘 저녁 7시까지 부산 서면으로 노트북 도착해야 해", // 결측 재질의 → 조건부 통과
+  "강남에서 해운대로 도자기 화병 저녁 8시까지 40만원",   // 포장요건 · 네 채널 모두 선택 가능
+  "서울역에서 대전으로 휘발유 한 통 오늘 안에",          // 금지품목 차단
+];
 
-  // 홈 폼·다시 보내기에서 문장이 완성돼 들어오면 바로 보낸다
-  useEffect(() => {
-    if (auto && seed && !autoSentRef.current) {
-      autoSentRef.current = true
-      send(seed)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auto, seed])
+function Bubble({ me, children }) {
+  return (
+    <div className={`flex ${me ? "justify-end" : "justify-start"}`}>
+      <div
+        className={`max-w-[78%] whitespace-pre-wrap rounded-[18px] px-4 py-2.5 text-[15px] leading-relaxed ${
+          me ? "bg-brand text-white" : "bg-g100 text-ink"
+        }`}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, busy])
+/* 도구 호출은 접힌 한 줄로만 알린다.
+   대화 흐름을 끊지 않으면서도 계산이 실제로 돌았음을 보여주기 위함이다. */
+function ToolPill({ calls, onOpen }) {
+  const ai = calls.filter((c) => c.ai !== "—").length;
+  return (
+    <button
+      onClick={onOpen}
+      className="focus-ring flex w-full items-center gap-2 rounded-field border border-line bg-card px-4 py-2.5 text-left"
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-ok" />
+      <span className="text-[13px] font-medium text-g600">
+        도구 {ai}개 호출 완료
+      </span>
+      <span className="ml-auto text-[12px] text-g500">보기 ›</span>
+    </button>
+  );
+}
 
-  async function send(text) {
-    const utterance = (text ?? input).trim()
-    if (!utterance || busy) return
-    setInput('')
-    setBusy(true)
-    setMessages((m) => [...m, { role: 'me', text: utterance }])
-    try {
-      const r = await api.post('/agent', {
-        utterance, history: historyRef.current, prior,
-      })
-      historyRef.current = [...historyRef.current, utterance].slice(-6)
-      setPrior(r.intake)
-      if (r.stage === 'BLOCKED') {
-        setMessages((m) => [...m, { role: 'bot', text: r.message, blocked: r.screening, tools: r.tool_calls }])
-      } else if (r.stage === 'ASK') {
-        setMessages((m) => [...m, {
-          role: 'bot', text: r.message, tools: r.tool_calls,
-          suggestions: r.suggestions || [],
-        }])
-      } else {
-        setMessages((m) => [...m, { role: 'bot', text: r.message, tools: r.tool_calls }])
-        // 0.5초 뒤 채널 비교로 — 답이 찍히는 것을 보고 넘어가야 흐름이 읽힌다
-        setTimeout(() => onQuoted(r), 500)
-      }
-    } catch (e) {
-      setMessages((m) => [...m, { role: 'bot', text: e.message }])
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const empty = messages.length === 0
+/* 규정·포장 판정 — 조항 번호를 칩으로 앞세운다.
+   "무엇을 추가로 하면 접수되는가"가 본문이 되어야 한다. */
+function ScreenCard({ screening }) {
+  const v = VERDICT[screening.verdict] || VERDICT.PASS;
+  const headline = {
+    PASS: "접수 가능해요",
+    CONDITIONAL: "접수 가능해요",
+    REVIEW: "확인이 필요해요",
+    BLOCKED: "접수할 수 없어요",
+  }[screening.verdict];
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-10 bg-white px-4 pb-3 pt-5">
-        <img src="/korail-blue.png" alt="KORAIL" className="h-6" />
-        <div className="mt-2 flex items-center gap-2">
-          <button onClick={onBack} className="px-1 text-[20px] text-g600">‹</button>
-          <div className="text-[20px] font-bold text-g900">AI 접수 도우미</div>
-          <div className="ml-auto flex items-center gap-3">
-            <span className="tnum text-[14px] text-g500">1 / 3</span>
-            <button onClick={onHome} className="text-[15px] font-medium text-g700">처음으로</button>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex-1 space-y-3 overflow-y-auto p-4 pb-28">
-        {/* 첫 화면 — 인트로 카드 + 예시 */}
-        <Card>
-          <div className="flex items-start gap-3">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand">
-              <Icon name="chat" size={26} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[18px] font-bold text-g900">AI 접수 도우미</span>
-                <span className="rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">AI</span>
-              </div>
-              <p className="mt-1 text-[15px] leading-7 text-g700">
-                출발지 · 도착지 · 물건 · 도착 기한을 한 문장으로 말씀하시면 보낼 방법을
-                찾아 드려요. 빠진 게 있으면 하나씩 여쭤봅니다.
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        {empty && (
-          <>
-            <div className="pt-1 text-[15px] text-g600">이렇게 요청해보세요</div>
-            {EXAMPLES.map((ex) => (
-              <button
-                key={ex}
-                onClick={() => send(ex)}
-                className="flex w-full items-center gap-2 rounded-card bg-white p-5 text-left shadow-card active:bg-g50"
-              >
-                <span className="min-w-0 flex-1 text-[16px] text-g900">{ex}</span>
-                <span className="shrink-0 text-g400">›</span>
-              </button>
-            ))}
-          </>
-        )}
-
-        {messages.map((m, i) => (
-          <MessageBubble key={i} msg={m} onSuggest={(s) => send(`${s.deadline}까지로 해주세요`)} />
-        ))}
-        {busy && (
-          <div className="flex items-center gap-2 text-[13px] text-g500">
-            <Spinner /> 확인하고 있어요…
-          </div>
-        )}
-        <div ref={bottomRef} />
+    <div className="rounded-card border border-line bg-card p-4">
+      <div className="flex items-center gap-2">
+        <Chip tone={v.tone}>{v.label}</Chip>
+        <p className="text-[16px] font-bold tracking-[-0.02em] text-ink">{headline}</p>
       </div>
 
-      {/* 입력 바 — 원형 ↑ 전송 버튼 */}
-      <div className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[430px] border-t border-g200 bg-white p-3">
-        <div className="flex items-center gap-2">
-          {/* flex 줄 안의 input — w-full min-w-0 flex-1 없으면 320px 에서 버튼이 밀려난다 */}
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && send()}
-            placeholder="메시지 입력"
-            className="w-full min-w-0 flex-1 rounded-full bg-g100 px-5 py-3.5 text-[16px] placeholder:text-g500 focus-ring"
-          />
+      {screening.findings?.length > 0 && (
+        <ul className="mt-3 space-y-2.5">
+          {screening.findings.map((f, i) => (
+            <li key={i} className="flex gap-2.5">
+              <span className="mt-0.5 shrink-0 rounded-md bg-brand-50 px-1.5 py-0.5 text-[11px] font-bold text-brand">
+                {clauseNo(f.clause)}
+              </span>
+              <p className="text-[14px] leading-relaxed text-g700">
+                {f.guidance || f.clause}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {screening.surcharge > 0 && (
+        <p className="tnum mt-3 rounded-field bg-g100 px-3 py-2 text-[13px] text-g600">
+          할증 {won(screening.surcharge)}이 더해져요.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* 안 된다고만 하면 이용자는 될 때까지 시각을 찍어 봐야 한다.
+   실제로 가능한 도착 시각을 눌러서 바로 이어갈 수 있게 한다. */
+function Suggestions({ items, onPick }) {
+  if (!items?.length) return null;
+  return (
+    <div className="rounded-card border border-line bg-card p-4">
+      <p className="text-[14px] font-bold text-ink">이 시각이면 보낼 수 있어요</p>
+      <div className="mt-2.5 flex flex-wrap gap-2">
+        {/* 버튼에는 **누르면 요청될 시각**(데드라인)을 쓴다.
+            도착 예정만 크게 띄우고 데드라인을 보내고 있었더니, "16:20 도착"을
+            눌렀는데 대화에는 "16:40까지"가 찍혔다. 누른 것과 찍힌 것이 다르면
+            그 순간 화면을 못 믿게 된다. 도착 예정은 아래에 작게 붙인다. */}
+        {items.map((s) => (
           <button
-            onClick={() => send()}
-            disabled={busy || !input.trim()}
+            key={s.deadline}
+            onClick={() => onPick(`${s.deadline}까지`)}
+            className="focus-ring rounded-chip bg-brand-50 px-3.5 py-2 text-left active:brightness-95"
+          >
+            <span className="block text-[14px] font-bold text-brand tnum">
+              {s.deadline}까지
+            </span>
+            <span className="block text-[11px] text-brand/70 tnum">
+              {s.eta} 도착
+            </span>
+          </button>
+        ))}
+      </div>
+      <p className="mt-2.5 text-[12px] leading-relaxed text-g500">
+        누르시면 그 시각을 기한으로 다시 계산해 드려요.
+      </p>
+    </div>
+  );
+}
+
+function clauseNo(clause = "") {
+  const m = clause.match(/제\s*\d+\s*조(\s*\d+\s*항)?/);
+  return m ? m[0].replace(/\s+/g, " ") : "규정";
+}
+
+export default function ChatIntake({ messages, intake, screening, loading, onSend, toolCalls, onOpenLog }) {
+  const [text, setText] = useState("");
+  const endRef = useRef(null);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages.length, loading, screening]);
+
+  const submit = (e) => {
+    e?.preventDefault();
+    const v = text.trim();
+    if (!v || loading) return;
+    onSend(v);
+    setText("");
+  };
+
+  return (
+    <div className="flex min-h-[calc(100dvh-118px)] flex-col">
+      <div className="flex-1 space-y-3 px-5 py-4">
+        {messages.length === 0 && (
+          <div className="space-y-2">
+            {/* 여기가 어디인지 먼저 말한다. 전에는 아무 설명 없이 대화창이 떠서
+                이용자가 무엇에 들어왔는지 알 수 없었다. */}
+            <div className="mb-3 flex items-start gap-3 rounded-card bg-card p-4 shadow-card">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-tint text-[20px]" aria-hidden="true">
+                💬
+              </span>
+              <div className="min-w-0">
+                <p className="flex items-center gap-1.5 text-[15px] font-bold text-ink">
+                  AI 접수 도우미
+                  <span className="rounded-chip bg-brand px-1.5 py-0.5 text-[10px] font-bold text-white">AI</span>
+                </p>
+                <p className="mt-1 text-[13px] leading-relaxed text-g600">
+                  출발지 · 도착지 · 물건 · 도착 기한을 한 문장으로 말씀하시면
+                  보낼 방법을 찾아 드려요. 빠진 게 있으면 하나씩 여쭤봅니다.
+                </p>
+              </div>
+            </div>
+            <p className="text-[14px] text-g500">이렇게 요청해보세요</p>
+            {SAMPLES.map((s) => (
+              <button
+                key={s}
+                onClick={() => onSend(s)}
+                className="focus-ring flex w-full items-center justify-between gap-2 rounded-field bg-card px-4 py-3.5 text-left text-[14px] text-g700 active:bg-g100"
+              >
+                <span className="truncate">{s}</span>
+                <span className="shrink-0 text-g500">›</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {messages.map((m, i) =>
+          m.role === "tools" ? (
+            <ToolPill key={i} calls={m.calls} onOpen={onOpenLog} />
+          ) : m.role === "screening" ? (
+            <ScreenCard key={i} screening={m.screening} />
+          ) : m.role === "suggestions" ? (
+            <Suggestions key={i} items={m.items} onPick={onSend} />
+          ) : (
+            <Bubble key={i} me={m.role === "user"}>
+              {m.text}
+            </Bubble>
+          )
+        )}
+
+        {/* 처리 단계를 그대로 읊지 않는다.
+            이용자가 알고 싶은 건 '무엇을 하는 중인가'가 아니라 '되는가'다. */}
+        {loading && (
+          <div className="px-1 py-1">
+            <Spinner label="보낼 수 있는 방법을 찾고 있어요" />
+          </div>
+        )}
+        <div ref={endRef} />
+      </div>
+
+      {/* 입력 — 하단 고정 */}
+      <div className="sticky bottom-0 bg-bg/95 px-5 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+        <form onSubmit={submit} className="flex items-center gap-2">
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="메시지 입력"
+            aria-label="메시지 입력"
+            size={8}
+            className="focus-ring min-h-[50px] w-full min-w-0 flex-1 rounded-chip bg-g100 px-5 text-[16px] outline-none placeholder:text-[14px] placeholder:text-g400"
+          />
+
+          <button
+            type="submit"
+            disabled={loading || !text.trim()}
             aria-label="보내기"
-            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-[20px] font-bold
-              ${input.trim() && !busy ? 'bg-brand text-white active:bg-brand-700' : 'bg-g200 text-g500'}`}
+            className="focus-ring flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full bg-brand text-[20px] text-white disabled:bg-g200 disabled:text-g400"
           >
             ↑
           </button>
-        </div>
+        </form>
       </div>
     </div>
-  )
-}
-
-function MessageBubble({ msg, onSuggest }) {
-  if (msg.role === 'me') {
-    return (
-      <div className="flex justify-end">
-        <div className="max-w-[80%] rounded-2xl rounded-br-md bg-brand px-3.5 py-2.5 text-[15px] text-white">
-          {msg.text}
-        </div>
-      </div>
-    )
-  }
-  return (
-    <div className="space-y-2">
-      <div className={`max-w-[85%] rounded-2xl rounded-bl-md px-3.5 py-2.5 text-[15px]
-        ${msg.blocked ? 'border border-danger/30 bg-dangerbg text-g900' : 'bg-white text-g900 shadow-card'}`}>
-        {msg.text}
-        {msg.blocked && msg.blocked.findings?.[0]?.clause && (
-          <div className="mt-2 border-t border-danger/20 pt-2 text-[12px] text-g600">
-            근거: {msg.blocked.findings[0].clause}
-          </div>
-        )}
-      </div>
-      {/* 불가 시 제안 칩 — 누르면 요청될 시각(데드라인)을 크게, 도착 예정은 작게.
-          반대로 하면 누른 것과 다른 값이 채팅에 찍힌다 */}
-      {msg.suggestions?.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {msg.suggestions.map((s) => (
-            <button
-              key={s.deadline}
-              onClick={() => onSuggest(s)}
-              className="rounded-xl border border-brand-300 bg-brand-50 px-3 py-2 text-left active:bg-brand-300/30"
-            >
-              <div className="tnum text-[16px] font-bold text-brand">{s.deadline}까지</div>
-              <div className="tnum text-[11px] text-g600">{s.train_no} · 도착 {s.eta}</div>
-            </button>
-          ))}
-        </div>
-      )}
-      {msg.tools?.length > 0 && <ToolLog tools={msg.tools} />}
-    </div>
-  )
-}
-
-// 도구 호출 로그 — AI 활용 증거. 접을 수 있는 패널
-function ToolLog({ tools }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div className="max-w-[85%]">
-      <button onClick={() => setOpen(!open)} className="text-[12px] font-medium text-brand">
-        {open ? '▾' : '▸'} AI 도구 호출 {tools.length}건
-      </button>
-      {open && (
-        <Card className="mt-1 space-y-1.5 !p-3">
-          {tools.map((t) => (
-            <div key={t.seq} className="flex items-center gap-2 text-[12px]">
-              <Chip tone={t.ai === '도구' ? 'mute' : 'brand'} className="shrink-0">{t.ai}</Chip>
-              <span className="min-w-0 flex-1 truncate text-g700">{t.tool}</span>
-              <span className="tnum shrink-0 text-g500">{t.elapsed_ms}ms</span>
-            </div>
-          ))}
-        </Card>
-      )}
-    </div>
-  )
+  );
 }
