@@ -1,31 +1,51 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ['./index.html', './src/**/*.{js,jsx}'],
+  content: ["./index.html", "./src/**/*.{js,jsx}"],
   theme: {
     extend: {
-      // 회색은 반드시 평평한 키 — 중첩(g:{100:…})으로 두면 Tailwind 가 g-100 으로
-      // 클래스명을 만들어 코드 전체의 g100 이 조용히 무시된다 (실제로 당한 사고)
       colors: {
-        g50: '#f9fafb', g100: '#f2f4f6', g200: '#e5e8eb', g300: '#d1d6db',
-        g400: '#b0b8c1', g500: '#8b95a1', g600: '#6b7684', g700: '#4e5968',
-        g800: '#333d4b', g900: '#191f28',
         brand: {
-          DEFAULT: '#1266e5', 900: '#0b47a8', 700: '#0d55c8',
-          300: '#8ab8f5', 50: '#eaf2fe', ci: '#0066b2',
+          900: "var(--brand-900)",
+          700: "var(--brand-700)",
+          DEFAULT: "var(--brand)",
+          300: "var(--brand-300)",
+          50: "var(--brand-50)",
         },
-        accent: '#00afdc',
-        ok: '#0f9d58', okbg: '#eaf7f0',
-        warn: '#d97706', warnbg: '#fdf4e7',
-        danger: '#e5342b', dangerbg: '#fdeeed',
+        accent: "var(--accent)",
+        /* 로고 전용 CI 파랑. 액션 파랑(brand)과 다르다 — 코레일톡도 둘을 나눠 쓴다. */
+        ci: "var(--brand-ci)",
+        /* 아이콘 타일·세그먼트 트랙에 깔리는 옅은 파랑 면 */
+        tint: "var(--brand-50)",
+        /* 회색은 평평한 키로 둔다.
+           중첩({ g: { 100: … })으로 쓰면 Tailwind 가 g-100 으로 이름을 만들어
+           코드 전체가 쓰는 g100 클래스는 아예 생성되지 않는다 — 조용히 무시된다. */
+        g50: "var(--g50)", g100: "var(--g100)", g200: "var(--g200)",
+        g300: "var(--g300)", g400: "var(--g400)", g500: "var(--g500)",
+        g600: "var(--g600)", g700: "var(--g700)", g800: "var(--g800)",
+        g900: "var(--g900)",
+        ink: "var(--ink)",
+        sub: "var(--sub)",
+        mute: "var(--mute)",
+        card: "var(--card)",
+        line: "var(--line)",
+        bg: "var(--bg)",
+        ok: "var(--ok)",
+        okbg: "var(--ok-bg)",
+        warn: "var(--warn)",
+        warnbg: "var(--warn-bg)",
+        danger: "var(--danger)",
+        dangerbg: "var(--danger-bg)",
       },
-      borderRadius: { card: '20px', btn: '14px', field: '12px' },
-      boxShadow: {
-        card: '0 1px 2px rgba(25,31,40,.05),0 6px 16px -10px rgba(25,31,40,.18)',
+      borderRadius: {
+        card: "var(--r-card)",
+        btn: "var(--r-btn)",
+        field: "var(--r-field)",
+        chip: "var(--r-chip)",
       },
-      fontFamily: {
-        sans: ['Pretendard', '-apple-system', 'Malgun Gothic', 'Noto Sans KR', 'sans-serif'],
-      },
+      boxShadow: { pop: "var(--shadow-pop)", card: "var(--shadow-card)" },
+      fontFamily: { sans: ["var(--font)"] },
+      maxWidth: { phone: "430px" },
     },
   },
   plugins: [],
-}
+};

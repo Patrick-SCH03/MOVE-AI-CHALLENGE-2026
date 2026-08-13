@@ -1,0 +1,173 @@
+/* 디자인 토큰
+
+
+   회색 계열과 간격·형태는 토스(TDS)의 언어를 따르고,
+   브랜드 색만 KORAIL CI 원본을 쓴다. */
+
+:root {
+  /* ── 브랜드 ──
+     현행 코레일톡은 **두 가지 파랑**을 쓴다. 로고는 CI 원본(#0066b2)이고,
+     버튼·헤더·선택 상태는 그보다 밝고 채도 높은 파랑이다.
+     한 가지로 합치면 로고가 뜨거나 버튼이 가라앉는다 — 둘 다 둔다. */
+  --brand-ci:  #0066b2;  /* 로고·브랜드 표기 전용 */
+
+  --brand-900: #0b47a8;  /* 헤더 위쪽 */
+  --brand-700: #0d55c8;
+  --brand:     #1266e5;  /* 주요 액션 — 코레일톡의 버튼 파랑 */
+  --brand-300: #8ab8f5;
+  --brand-50:  #eaf2fe;  /* 틴트 면 — 아이콘 타일·세그먼트 트랙 */
+  --accent:    #00afdc;  /* CI 심볼 그라데이션 — 지선(①③) */
+
+  /* 홈 헤더. 코레일톡은 밝은 파랑 위에 오른쪽 위로 따뜻한 빛이 번진다.
+     짙은 남색 단색으로 두면 같은 회사 앱으로 보이지 않는다. */
+  --header: radial-gradient(130% 95% at 88% 8%, rgba(255,214,138,.55) 0%, rgba(255,214,138,0) 55%),
+            linear-gradient(168deg, #1462dd 0%, #2b81ef 58%, #4f9ff7 100%);
+
+  /* ── 회색 (토스 스케일) ── */
+  --g50:  #f9fafb;
+  --g100: #f2f4f6;
+  --g200: #e5e8eb;
+  --g300: #d1d6db;
+  --g400: #b0b8c1;
+  --g500: #8b95a1;
+  --g600: #6b7684;
+  --g700: #4e5968;
+  --g800: #333d4b;
+  --g900: #191f28;
+
+  /* ── 역할 ──
+     흰 카드는 흰 배경 위에서 사라진다. 바탕을 한 단계 낮추고 구분선을 g200 으로
+     올려야 면이 면으로 읽힌다. (g50 바탕 + g100 선은 밝은 화면에서 거의 안 보였다) */
+  --bg:    var(--g100);
+  --card:  #ffffff;
+  --line:  var(--g200);
+  --ink:   var(--g900);
+  --sub:   var(--g700);
+  --mute:  var(--g600);
+
+  /* ── 의미 ── */
+  --ok:      #0f9d58;
+  --ok-bg:   #eaf7f0;
+  --warn:    #d97706;
+  --warn-bg: #fdf4e7;
+  --danger:  #e5342b;
+  --danger-bg:#fdeeed;
+
+  /* ── 형태 (토스: 큰 라운드, 그림자는 옅게) ── */
+  --r-card: 20px;
+  --r-btn:  14px;
+  --r-field:12px;
+  --r-chip: 999px;
+  /* 그림자를 아예 없애면 카드 경계가 사라진다. 들어올리지 않을 만큼만 준다. */
+  --shadow-card: 0 1px 2px rgba(25,31,40,.05), 0 6px 16px -10px rgba(25,31,40,.18);
+  --shadow-pop:  0 2px 6px rgba(25,31,40,.06), 0 14px 32px -12px rgba(25,31,40,.28);
+
+  /* ── 타이포 ── */
+  --font: Pretendard, -apple-system, BlinkMacSystemFont, 'Malgun Gothic',
+          'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+
+html {
+  /* 가로 회전 시 iOS 가 글자를 임의로 키우는 것을 막는다 */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  /* 아래로 당겼을 때 페이지 전체가 튀지 않게 한다 */
+  overscroll-behavior-y: none;
+  /* 모바일에서 가로 스크롤은 언제나 버그다 */
+  overflow-x: hidden;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  letter-spacing: inherit;
+  /* 탭할 때 파란 사각형이 번쩍이는 것을 없앤다 */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* iOS 는 16px 미만 입력에 포커스하면 화면을 확대하고 되돌리지 않는다.
+   모든 입력은 16px 이상이어야 한다. */
+input, select, textarea { font-size: 16px; }
+
+/* 모바일에서 길게 눌러 텍스트가 선택되는 것을 막되, 입력과 본문은 예외 */
+button, .no-select { -webkit-user-select: none; user-select: none; }
+
+/* 확률·금액 등 갱신되는 숫자는 자릿수가 흔들리면 안 된다 */
+.tnum { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
+
+/* 미배정 구간 — 색이 아니라 패턴으로 구분 (색각 이상 대응) */
+.pattern-unassigned {
+  background-image: repeating-linear-gradient(
+    45deg, transparent, transparent 5px,
+    rgba(139,149,161,.28) 5px, rgba(139,149,161,.28) 10px
+  );
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* 토스는 구분선을 얇게, 색은 아주 옅게 쓴다 */
+.hairline { border-bottom: 1px solid var(--line); }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--g300); border-radius: 999px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    transition-duration: .001ms !important;
+  }
+}
+
+@keyframes logIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+.log-in { animation: logIn .18s ease-out both; }
+
+/* 토스트 — 아래에서 올라온다 */
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+.toast-in { animation: toastIn .2s cubic-bezier(.2,.8,.2,1) both; }
+
+/* 화면 전환 — 과하지 않게.
+
+   fill-mode 를 both 로 두면 안 된다. 애니메이션이 끝난 뒤에도 마지막 키프레임이
+   남아 계산된 transform 이 matrix(1,0,0,1,0,0) 이 된다. 항등행렬이어도 transform 이
+   있으면 **그 요소가 position:fixed 의 기준 박스**가 되어, 안에 있는 fixed 요소가
+   뷰포트가 아니라 화면 박스를 기준으로 배치된다.
+   홈의 떠 있는 알약이 문서 2018px 지점에 박혀 있었던 것이 이것 때문이다.
+
+   backwards 는 시작 전에만 채우므로 끝나고 나면 transform 이 남지 않는다. */
+@keyframes screenIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.screen-in { animation: screenIn .22s cubic-bezier(.2,.8,.2,1) backwards; }
+
+/* 스켈레톤 — 무엇이 올지 모양으로 미리 알린다 */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--g100) 25%, var(--g200) 50%, var(--g100) 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.3s linear infinite;
+  border-radius: var(--r-field);
+}
