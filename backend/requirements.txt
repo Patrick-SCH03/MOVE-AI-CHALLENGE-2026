@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+sqlmodel
+numpy
+python-dotenv
+google-genai
