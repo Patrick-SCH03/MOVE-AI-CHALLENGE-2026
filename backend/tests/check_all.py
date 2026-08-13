@@ -195,6 +195,63 @@ def route_refusals():
     assert not r["feasible"] and r.get("need_place")
 
 
+# ── P4: 요율 · 채널 ────────────────────────────────────────────────────
+def tariff_rules():
+    from app.seed import tariff
+
+    assert tariff.value_surcharge(400_000) == 0
+    assert tariff.value_surcharge(850_000) == 5_000
+    assert tariff.value_surcharge(1_500_000) == 8_000
+    assert tariff.value_surcharge(2_500_000) == 10_000
+    assert tariff.tier_of("노트북") == "B"
+    assert tariff.tier_of("서류봉투") == "초소형/서류"   # 긴 이름 먼저
+    assert tariff.tier_of("모르는물건") == "B"
+    assert tariff.distance_surcharge("SEO", "BSN") == 1_000
+    assert tariff.distance_surcharge("DJN", "DDG") == 0
+    assert tariff.liability_cap(None) == 500_000
+    total, lines = tariff.base_fare("노트북", "SEO", "BSN", 850_000)
+    assert total == 10_000 + 1_000 + 5_000 and len(lines) == 3
+
+
+def channels_consistency():
+    """경로가 가능하다는데 채널 카드가 같은 건을 '마감 지났어요'라 하면 안 된다."""
+    from app import tago
+    from app.clock import to_min
+    from app.tools.channels import SPLIT, SURCHARGE, compare
+    from app.tools.route import build
+
+    for ch, split in SPLIT.items():
+        assert sum(split.values()) == SURCHARGE[ch]
+
+    def fake_trains(dep, arr, day):
+        if dep == "SEO" and arr == "BSN":
+            return [tago.Train("KTX 35", "KTX", "13:58", "16:35", 59800),
+                    tago.Train("KTX 39", "KTX", "14:28", "17:12", 59800)]
+        return []
+
+    restore = _mock_tago(fake_trains)
+    try:
+        plan = build("강남", "서면", "18:00", now="10:00")
+        assert plan["feasible"]
+        cards = compare(plan, "노트북", 850_000, "18:00", to_min("10:00"))
+        by_id = {c["id"]: c for c in cards}
+        assert by_id["relay"]["feasible"], "경로는 되는데 relay 카드가 불가"
+        assert by_id["relay"]["train_no"] == plan["train_no"], "relay 카드가 계획과 다른 편성"
+        assert by_id["relay"]["eta"] == plan["eta"]
+        # 창구는 도착 후 55분 — 더 이른 열차라도 자기 마감 안이면 가능해야 한다
+        assert by_id["desk"]["feasible"]
+        # 고가품은 relay 만 막힌다
+        cards2 = compare(plan, "노트북", 2_500_000, "18:00", to_min("10:00"))
+        by2 = {c["id"]: c for c in cards2}
+        assert not by2["relay"]["feasible"] and by2["desk"]["feasible"]
+        # 뱃지는 선택 가능한 채널에만
+        for c in cards:
+            if c["badge"]:
+                assert c["feasible"]
+    finally:
+        restore()
+
+
 CHECKS = [
     ("운반자 시드 — 팀원 4명·재현성·부산 활동 시간대", carriers_seed),
     ("엔진 — 같은 입력 = 같은 결과", engine_reproducible),
@@ -207,6 +264,8 @@ CHECKS = [
     ("헝가리안 — 무작위 200회 완전탐색 대조", hungarian_vs_bruteforce),
     ("경로 — 3구간 곱셈·전역 배정·제안이 실제 계획", route_product_and_suggestions),
     ("경로 — 거절 사유 구분 (생활권·지명 미인식)", route_refusals),
+    ("요율 — 등급·거리·가액·배상 규칙", tariff_rules),
+    ("채널 — 배분 합계·경로와 무모순·고가품 차단", channels_consistency),
 ]
 
 

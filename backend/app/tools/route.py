@@ -119,14 +119,17 @@ def _evaluate(train: tago.Train, dep_st: Station, arr_st: Station,
             "probability": round(p, 4),
         }
         if cand:
+            # 보상은 배분표(channels.SPLIT)에서만 나온다 — 숫자를 여기 적지 않는다
+            from .channels import RELAY_LEG_REWARD
             base.update(carrier_id=cand.carrier.id, carrier_name=cand.carrier.name,
                         assigned=True, fallback=False, fallback_note="",
-                        match_reason=cand.reason)
+                        match_reason=cand.reason, reward=RELAY_LEG_REWARD)
         else:
-            # 미배정 — 대체 경로(집앞 픽업)로 계산했고, 화면에도 그렇게 말한다
+            # 미배정 — 대체 경로(집앞 픽업)로 계산했고, 화면에도 그렇게 말한다.
+            # 계약 주체가 일하므로 보상 0
             base.update(carrier_id=None,
                         carrier_name="픽업 기사" if seq == 1 else "배송 기사",
-                        assigned=False, fallback=True,
+                        assigned=False, fallback=True, reward=0,
                         fallback_note="주변에 맞는 운반자가 없어 픽업 서비스로 계산했어요. 추가 요금은 없습니다.")
         return base
 
