@@ -13,7 +13,7 @@
 MOVE-AI CHALLENGE 2026 · 한국철도공사 트랙 제안 프로토타입입니다.
 
 [![Live](https://img.shields.io/badge/Live_Demo-000000?style=for-the-badge)](https://move-ai-mu.vercel.app)
-[![CI](https://github.com/Patrick-SCH03/move_ai/actions/workflows/ci.yml/badge.svg)](https://github.com/Patrick-SCH03/move_ai/actions/workflows/ci.yml)
+[![CI](https://github.com/Patrick-SCH03/MOVE-AI-CHALLENGE-2026/actions/workflows/ci.yml/badge.svg)](https://github.com/Patrick-SCH03/MOVE-AI-CHALLENGE-2026/actions/workflows/ci.yml)
 
 </div>
 
