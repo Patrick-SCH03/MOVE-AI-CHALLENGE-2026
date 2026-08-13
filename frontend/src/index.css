@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand-ci: #0066b2; /* 로고 전용 — 버튼 파랑과 합치면 로고가 뜨거나 버튼이 가라앉는다 */
+  --brand-900: #0b47a8; --brand-700: #0d55c8; --brand: #1266e5;
+  --brand-300: #8ab8f5; --brand-50: #eaf2fe; --accent: #00afdc;
+  --header: radial-gradient(130% 95% at 88% 8%, rgba(255,214,138,.55) 0%, rgba(255,214,138,0) 55%),
+            linear-gradient(168deg, #1462dd 0%, #2b81ef 58%, #4f9ff7 100%);
+  --g50:#f9fafb; --g100:#f2f4f6; --g200:#e5e8eb; --g300:#d1d6db; --g400:#b0b8c1;
+  --g500:#8b95a1; --g600:#6b7684; --g700:#4e5968; --g800:#333d4b; --g900:#191f28;
+  --bg: var(--g100); --card: #fff; --line: var(--g200);
+  --ink: var(--g900); --sub: var(--g700); --mute: var(--g600);
+  --ok:#0f9d58; --ok-bg:#eaf7f0; --warn:#d97706; --warn-bg:#fdf4e7;
+  --danger:#e5342b; --danger-bg:#fdeeed;
+  --r-card: 20px; --r-btn: 14px; --r-field: 12px; --r-chip: 999px;
+  --shadow-card: 0 1px 2px rgba(25,31,40,.05), 0 6px 16px -10px rgba(25,31,40,.18);
+  --font: Pretendard, -apple-system, 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+}
+
+/* 확률·금액 자릿수 고정 — 숫자가 바뀔 때 화면이 흔들리지 않는다 */
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* iOS 가 16px 미만 input 에 포커스하면 화면을 확대하고 되돌리지 않는다 */
+input, select, textarea { font-size: 16px; }
+
+/* 모바일 가로 스크롤은 언제나 버그다 */
+body { overflow-x: hidden; }
+
+.focus-ring:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  margin: 0;
+}

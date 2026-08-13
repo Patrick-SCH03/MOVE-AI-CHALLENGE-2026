@@ -1,0 +1,61 @@
+# 키 없이 도는 것만 넣는다 — 키 설정을 기다리는 CI 는 당일에 아무도 안 고치고
+# 빨간 배지만 남는다. 통합 잡은 키가 있을 때만 돌고, 없으면 실패가 아니라 미실행.
+name: ci
+
+on: [push, pull_request]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r backend/requirements.txt
+      # 테스트가 생기는 단계마다 여기에 채운다 — 전부 서버·키 불필요로 유지
+      - name: 엔진·폴백 테스트
+        working-directory: backend
+        run: |
+          if [ -f tests/check_all.py ]; then python tests/check_all.py; else echo "테스트 없음 — 뼈대 단계"; fi
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - working-directory: frontend
+        run: npm ci
+      # Vercel 이 알려주기 전에 여기서 빌드 실패를 안다
+      - working-directory: frontend
+        run: npm run build
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # secrets 는 job 단위 if 에서 못 쓴다 — 스텝에서 확인해 출력으로 넘긴다
+      - name: 키 존재 확인
+        id: keys
+        run: |
+          if [ -n "${{ secrets.DATA_GO_KR_KEY }}" ]; then
+            echo "has_keys=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_keys=false" >> "$GITHUB_OUTPUT"
+            echo "키 미설정 — 통합 테스트는 미실행으로 지나간다 (실패 아님)"
+          fi
+      - uses: actions/setup-python@v5
+        if: steps.keys.outputs.has_keys == 'true'
+        with:
+          python-version: '3.11'
+      - if: steps.keys.outputs.has_keys == 'true'
+        run: pip install -r backend/requirements.txt
+      - name: TAGO 통합 확인
+        if: steps.keys.outputs.has_keys == 'true'
+        working-directory: backend
+        env:
+          DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
+        run: |
+          if [ -f tests/check_tago.py ]; then python tests/check_tago.py; else echo "통합 테스트 없음"; fi
