@@ -390,6 +390,52 @@ def orders_flow():
         restore()
 
 
+# ── 특일·열차운행정보 — 키 없이 폴백 성질만 검사한다 ─────────────────────
+def ontime_fallback_and_measured():
+    """실측이 없으면 공시 상수, 있으면 실측 — 확률·크기가 같은 출처에서 함께 움직인다."""
+    from unittest.mock import patch
+
+    from app import trainrun
+    from app.seed import ontime
+
+    with patch.object(trainrun, "measured", return_value=None):
+        assert ontime.rate("KTX") == ontime.ONTIME_RATE["KTX"]
+        assert ontime.rate("SRT") == ontime.ONTIME_RATE["SRT"]
+        assert ontime.delay_mean("KTX") == ontime.DELAY_MEAN_MIN
+        assert ontime.provenance("KTX")["source"] == "공시"
+    m = {"date": "20260812", "n": 319, "ontime_rate": 0.931, "delay_mean_min": 8.1}
+    with patch.object(trainrun, "measured", return_value=m):
+        assert ontime.rate("KTX") == 0.931
+        assert ontime.delay_mean("KTX") == 8.1
+        # SRT 는 이 데이터에 없다 — 실측이 있어도 공시 유지
+        assert ontime.rate("SRT") == ontime.ONTIME_RATE["SRT"]
+        assert ontime.provenance("KTX")["source"] == "실측"
+
+
+def specialday_silent_without_key():
+    """키가 없거나 조회가 실패하면 평일 취급(None) — 예외가 화면까지 가면 안 된다."""
+    from unittest.mock import patch
+
+    from app import specialday
+
+    with patch.object(specialday, "month_holidays", return_value=None):
+        assert specialday.today_special() is None
+    days = [{"date": "20260815", "name": "광복절", "holiday": True}]
+    with patch.object(specialday, "month_holidays", return_value=days):
+        got = specialday.today_special()
+        # 오늘이 8/15 일 때만 배지가 뜬다 — 날짜 비교가 KST 기준으로 도는지
+        from app.clock import now_kst
+        expect = now_kst().strftime("%Y%m%d") == "20260815"
+        assert (got is not None) == expect
+
+
+def holiday_raises_relay_risk():
+    """공휴일이면 시민 운반 카드 확률이 평일보다 낮아야 한다 (매칭 리스크 상향)."""
+    from app.tools import channels
+
+    assert channels.HOLIDAY_MATCH_RISK > channels.MATCH_RISK
+
+
 CHECKS = [
     ("운반자 시드 — 팀원 4명·재현성·부산 활동 시간대", carriers_seed),
     ("엔진 — 같은 입력 = 같은 결과", engine_reproducible),
@@ -407,6 +453,9 @@ CHECKS = [
     ("파서 — 규칙 폴백 정확도 (금액·시각·품목)", parse_fallback_accuracy),
     ("규정 — 금지품 원문 스캔·상한·고가품", screening_rules),
     ("주문 — 동의 400·전부 거절 전환·인계 순서·지연 단조", orders_flow),
+    ("정시율 — 실측 우선·공시 폴백·SRT 상수 유지", ontime_fallback_and_measured),
+    ("특일 — 실패 시 평일 취급·KST 날짜 판정", specialday_silent_without_key),
+    ("특일 — 공휴일 매칭 리스크 상향", holiday_raises_relay_risk),
 ]
 
 

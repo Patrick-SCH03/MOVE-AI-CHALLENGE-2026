@@ -15,8 +15,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from ..seed import ontime
 from ..seed.carriers import SPEED_KMH
-from ..seed.ontime import DELAY_MEAN_MIN, ONTIME_RATE
 
 # 확률 상한 0.99 — 100%는 확률이 아니라 약속으로 읽힌다.
 # 하한 0.05 는 경로 목록 필터(route)가 쓴다. 구간 값 자체는 자르지 않는다.
@@ -100,10 +100,9 @@ def leg_probability(leg: LegInput, n: int | None = None) -> float:
 
 def train_delay_samples(grade: str, n: int, rng: np.random.Generator) -> np.ndarray:
     """열차 지연 표본(분). 늦을 확률(베르누이 1−정시율)과 늦는 크기(지수분포)는
-    출처가 다르다 — 확률은 사업자 공표 정시율, 크기는 실측 대상 가정값."""
-    ontime = ONTIME_RATE.get(grade, ONTIME_RATE["KTX"])
-    late = rng.random(n) >= ontime
-    sizes = rng.exponential(DELAY_MEAN_MIN, size=n)
+    출처가 다르다 — 두 값 모두 ontime 이 실측(전일 운행실적) 우선으로 고른다."""
+    late = rng.random(n) >= ontime.rate(grade)
+    sizes = rng.exponential(ontime.delay_mean(grade), size=n)
     return np.where(late, sizes, 0.0)
 
 

@@ -4,6 +4,8 @@
 # 데이터 — DB 와 공공데이터 캐시는 실행 산출물이다
 *.db
 .tago.json
+.specialday.json
+.trainrun.json
 *.json.cache
 
 # 환경

@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
-from . import tago  # noqa: E402  (load_dotenv 이후여야 키를 읽는다)
+from . import specialday, tago, trainrun  # noqa: E402  (load_dotenv 이후여야 키를 읽는다)
 from .clock import service_now, to_hhmm, today_yyyymmdd  # noqa: E402
 from .db import init_db  # noqa: E402
 from .routers import carrier as carrier_router  # noqa: E402
@@ -23,6 +23,10 @@ if os.getenv("SEED_ON_START", "").lower() == "true":
     from .seed.demo_orders import seed_if_empty
 
     seed_if_empty()
+
+# 전일 운행실적 예열 — 요청 경로에서 16번 페이징을 돌리면 화면이 멈추므로
+# 기동 시 1회 스레드로 수집한다. 끝나기 전·실패 시엔 공시 상수 폴백으로 돈다
+trainrun.warm_async()
 
 app = FastAPI(title="KTX 당일배송", docs_url="/api/docs", openapi_url="/api/openapi.json")
 
@@ -49,6 +53,9 @@ def health():
     return {
         "ok": True,
         "tago_api": tago.status(today_yyyymmdd()),
+        "trainrun_api": trainrun.status(),      # 정시율이 실측인지 공시 폴백인지
+        "specialday_api": specialday.status(),
+        "today_special": specialday.today_special(),
         "gemini": bool(os.getenv("GEMINI_API_KEY", "").strip()),
         "model": os.getenv("GEMINI_MODEL", "gemini-3.6-flash"),
         "service_now": to_hhmm(service_now()),
