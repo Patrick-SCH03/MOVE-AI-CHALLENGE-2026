@@ -1,7 +1,7 @@
 {
   "name": "KTX 당일배송",
   "short_name": "KTX당일배송",
-  "description": "출근길 시민과 KTX가 이어 달리는 당일 특송 — 역에 가지 않고 오늘 안에 보냅니다",
+  "description": "시민과 KTX가 이어 달리는 당일 특송 — 역에 가지 않고 오늘 안에 보냅니다",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
