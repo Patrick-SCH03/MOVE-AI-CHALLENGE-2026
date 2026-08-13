@@ -291,6 +291,99 @@ def screening_rules():
     assert screen("책", None)["verdict"] == "PASS"
 
 
+# ── P8: 주문 흐름 ──────────────────────────────────────────────────────
+def orders_flow():
+    """접수→배차→인계→증명 전 구간 — 콜을 전부 거절해도 인계가 이어진다."""
+    import os
+    import tempfile
+
+    os.environ["DEMO_MODE"] = "true"
+    from pathlib import Path
+
+    from sqlmodel import create_engine
+
+    import app.db as db
+    import app.routers.meta as meta_router
+    import app.routers.orders as orders_router
+    from app import tago
+
+    tmp = Path(tempfile.mkdtemp()) / "check.db"
+    db.DB_PATH = tmp
+    db.engine = create_engine(f"sqlite:///{tmp}")
+    orders_router.engine = db.engine
+    meta_router.engine = db.engine
+    db.init_db()
+
+    def fake_trains(dep, arr, day):
+        if dep == "SEO" and arr == "BSN":
+            return [tago.Train("KTX 35", "KTX", "13:58", "16:35", 59800),
+                    tago.Train("KTX 39", "KTX", "14:28", "17:12", 59800)]
+        return []
+
+    restore = _mock_tago(fake_trains)
+    try:
+        from fastapi.testclient import TestClient
+
+        from app.main import app
+        c = TestClient(app)
+        body = dict(origin="강남", destination="서면", deadline="18:00", item="노트북",
+                    declared_value=850000, channel="relay", now="12:00",
+                    notice_consent=True, recipient_consent=True, relay_consent=True)
+
+        # 동의는 서버가 막는다
+        assert c.post("/api/orders", json={**body, "relay_consent": False}).status_code == 400
+        assert c.post("/api/orders", json={**body, "notice_consent": False}).status_code == 400
+
+        # 콜을 전부 거절해도 구간이 수락 대기로 굳지 않는다
+        d = c.post("/api/orders", json=body).json()
+        oid = d["order"]["id"]
+        fare0 = d["order"]["fare"]
+        for _ in range(300):
+            ringing = c.get(f"/api/orders/{oid}").json()["order"]["dispatch"]["ringing"]
+            if not ringing:
+                break
+            for call in ringing:
+                c.post(f"/api/carrier/call/{call['id']}/respond", json={"accept": False})
+        got = c.get(f"/api/orders/{oid}").json()
+        legs = {leg["seq"]: leg for leg in got["legs"]}
+        for s in (1, 3):
+            assert legs[s]["accepted"] and legs[s]["fallback"], f"{s}구간이 수락 대기로 굳었다"
+            assert len(legs[s]["handover_code"]) == 6 and legs[s]["reward"] == 0
+        assert got["order"]["fare"] == fare0, "전환은 우리 사정 — 운임이 변하면 안 된다"
+
+        # 순서 건너뜀 400 · 틀린 코드는 실제 코드 변형으로 (000000 은 마스터라 성공해 버린다)
+        assert c.post("/api/handover", json={"order_id": oid, "seq": 2, "code": "000000"}).status_code == 400
+        wrong = str((int(legs[1]["handover_code"]) + 1) % 1000000).zfill(6)
+        assert c.post("/api/handover", json={"order_id": oid, "seq": 1, "code": wrong}).status_code == 400
+        for seq in (1, 2, 3):
+            assert c.post("/api/handover", json={"order_id": oid, "seq": seq, "code": "000000"}).status_code == 200
+        assert c.get(f"/api/orders/{oid}").json()["order"]["status"] == "COMPLETED"
+        proof = c.get(f"/api/proof/{oid}?client=검사").json()
+        assert [e["type"] for e in proof["events"]] == ["RECEIVED", "IN_TRANSIT", "DELIVERED"]
+
+        # 지연: 탑재 전에는 확률이 없고, 확정 지연이 커질수록 확률이 안 오른다
+        d2 = c.post("/api/orders", json=body).json()
+        oid2 = d2["order"]["id"]
+        assert c.get(f"/api/orders/{oid2}/notifications").json()["probability_now"] is None
+        for call in c.get(f"/api/orders/{oid2}").json()["order"]["dispatch"]["ringing"]:
+            c.post(f"/api/carrier/call/{call['id']}/respond", json={"accept": True})
+        c.post("/api/handover", json={"order_id": oid2, "seq": 1, "code": "000000"})
+        c.post("/api/handover", json={"order_id": oid2, "seq": 2, "code": "000000"})
+        n = c.get(f"/api/orders/{oid2}/notifications").json()
+        assert n["delay_applies"] and n["probability_now"] is not None
+        prev_p, prev_eta = None, n["eta_now"]
+        for d_min in (12, 25):
+            nd = c.post(f"/api/orders/{oid2}/delay", json={"delay_min": d_min}).json()
+            assert nd["eta_now"] > prev_eta, "지연인데 도착 예정이 안 밀렸다"
+            if prev_p is not None:
+                assert nd["probability_now"] <= prev_p + 0.01, "확정 지연이 커질수록 확률이 올랐다"
+            prev_p, prev_eta = nd["probability_now"], nd["eta_now"]
+        # 탑재 후 취소 400
+        assert c.post(f"/api/orders/{oid2}/cancel").status_code == 400
+    finally:
+        restore()
+
+
 CHECKS = [
     ("운반자 시드 — 팀원 4명·재현성·부산 활동 시간대", carriers_seed),
     ("엔진 — 같은 입력 = 같은 결과", engine_reproducible),
@@ -307,6 +400,7 @@ CHECKS = [
     ("채널 — 배분 합계·경로와 무모순·고가품 차단", channels_consistency),
     ("파서 — 규칙 폴백 정확도 (금액·시각·품목)", parse_fallback_accuracy),
     ("규정 — 금지품 원문 스캔·상한·고가품", screening_rules),
+    ("주문 — 동의 400·전부 거절 전환·인계 순서·지연 단조", orders_flow),
 ]
 
 
