@@ -1,0 +1,19 @@
+# 비밀 — 저장소가 Public 이다. 키는 .env 에만 두고 절대 커밋하지 않는다
+.env
+
+# 데이터 — DB 와 공공데이터 캐시는 실행 산출물이다
+*.db
+.tago.json
+*.json.cache
+
+# 환경
+.venv/
+node_modules/
+dist/
+__pycache__/
+*.pyc
+
+# 참고자료 — 대회 규칙상 사전 작성 파일은 저장소에 넣지 않는다 (참고 용도로만)
+hackathon_0813/
+korail_logo/
+example/
