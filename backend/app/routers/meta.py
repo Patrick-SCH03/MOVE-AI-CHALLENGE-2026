@@ -40,6 +40,7 @@ def live():
     done_all = [o for o in orders if o.status == "COMPLETED"]
     return {
         "today_orders": len(today),
+        "today_count": len(today),   # 홈 화면 표기용 별칭
         "in_transit": len(in_transit),
         "week_completed": len(week_done),
         "ontime_rate": round(len(ontime) / len(week_done), 4) if week_done else None,

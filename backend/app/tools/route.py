@@ -105,6 +105,8 @@ def _evaluate(train: tago.Train, dep_st: Station, arr_st: Station,
                 "start_at": train.dep_time, "end_at": train.arr_time,
                 "probability": round(r.p2, 4), "assigned": True,
                 "fallback": False, "fallback_note": "",
+                "mode": "KTX", "carrier_type": None,
+                "from_point": [dep_st.lat, dep_st.lon], "to_point": [arr_st.lat, arr_st.lon],
             }
         cand = cands[seq]
         p = r.p1 if seq == 1 else r.p3
@@ -117,6 +119,12 @@ def _evaluate(train: tago.Train, dep_st: Station, arr_st: Station,
             "start_at": to_hhmm(now_min if seq == 1 else leg3_start),
             "end_at": to_hhmm(cutoff if seq == 1 else eta_min),
             "probability": round(p, 4),
+            # 운반자 교체(시연)가 이 좌표로 그 구간의 후보를 다시 조회한다
+            "from_point": list(o_pt) if seq == 1 else [arr_st.lat, arr_st.lon],
+            "to_point": [dep_st.lat, dep_st.lon] if seq == 1 else list(d_pt),
+            "distance_km": round(d1 if seq == 1 else d3, 1),
+            "mode": cand.carrier.mode if cand else "대중교통",
+            "carrier_type": cand.carrier.type if cand else None,
         }
         if cand:
             # 보상은 배분표(channels.SPLIT)에서만 나온다 — 숫자를 여기 적지 않는다

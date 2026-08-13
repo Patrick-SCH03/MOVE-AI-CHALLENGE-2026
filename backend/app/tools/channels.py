@@ -43,6 +43,14 @@ LOCKER_RISK = 0.03            # 무인함 회수 주기 대기 리스크 — 가
 NAMES = {"desk": "KTX특송 창구", "locker": "역사 무인함", "relay": "시민 운반",
          "fullmile": "기사 방문 픽업"}
 
+# 카드 하단 안내 문구 — 채널의 성격을 한 줄로
+NOTES = {
+    "desk": "역 창구에 직접 맡기고, 도착역 창구에서 받아요. 변동이 가장 작아요.",
+    "locker": "역 무인함에 넣어 두면 회수해 실어요. 24시간 접수돼요.",
+    "relay": "가는 길인 시민이 집앞에서 받아 역까지, 도착역에서 집앞까지 이어 날라요.",
+    "fullmile": "픽업 기사가 방문 수거하고 도착지까지 배달해요. 문전 배송이에요.",
+}
+
 
 def cap(p: float) -> float:
     return min(0.99, max(0.0, p))
@@ -56,18 +64,25 @@ class _Pick:
 
 
 def _pick_train(trains: list[tago.Train], lead_min: int, after_min: int,
-                deadline_min: int, now_min: int) -> tuple[_Pick | None, str]:
-    """채널이 탈 수 있는 편성 중 가장 늦은 것. 없으면 (None, 사유)."""
+                deadline_min: int, now_min: int) -> tuple[_Pick | None, str, _Pick | None]:
+    """채널이 탈 수 있는 편성 중 가장 늦은 것.
+    없으면 (None, 사유, 표시용 최선 편성) — 불가 카드도 빈 칸 대신 근거 시각을 보여준다."""
     fits_deadline = [t for t in trains
                      if to_min(t.arr_time) + after_min <= deadline_min
                      and to_min(t.arr_time) > to_min(t.dep_time)]
     if not fits_deadline:
-        return None, "이 채널의 수령 방식으로는 데드라인을 맞출 수 없어요"
+        show = max(trains, key=lambda t: to_min(t.dep_time)) if trains else None
+        pick = _Pick(show, to_min(show.dep_time) - lead_min,
+                     to_min(show.arr_time) + after_min) if show else None
+        return None, "이 채널의 수령 방식으로는 데드라인을 맞출 수 없어요", pick
     open_now = [t for t in fits_deadline if to_min(t.dep_time) - lead_min >= now_min]
     if not open_now:
-        return None, "접수 마감이 지났어요"
+        show = max(fits_deadline, key=lambda t: to_min(t.dep_time))
+        pick = _Pick(show, to_min(show.dep_time) - lead_min,
+                     to_min(show.arr_time) + after_min)
+        return None, "접수 마감이 지났어요", pick
     t = max(open_now, key=lambda t: to_min(t.dep_time))
-    return _Pick(t, to_min(t.dep_time) - lead_min, to_min(t.arr_time) + after_min), ""
+    return _Pick(t, to_min(t.dep_time) - lead_min, to_min(t.arr_time) + after_min), "", None
 
 
 def compare(plan: dict, item: str | None, declared_value: int | None,
@@ -93,7 +108,7 @@ def compare(plan: dict, item: str | None, declared_value: int | None,
     for ch in ("desk", "locker", "relay", "fullmile"):
         lead = CUTOFF_LEAD.get(ch, relay_lead)
         after = PICKUP_AFTER[ch]
-        pick, why = _pick_train(trains, lead, after, deadline_min, now_min)
+        pick, why, show = _pick_train(trains, lead, after, deadline_min, now_min)
 
         fare = base + SURCHARGE[ch]
         fare_lines = base_lines + [{"label": f"채널 추가 ({NAMES[ch]})", "amount": SURCHARGE[ch]}]
@@ -102,6 +117,7 @@ def compare(plan: dict, item: str | None, declared_value: int | None,
             "fare": fare, "fare_label": f"{fare:,}원", "fare_lines": fare_lines,
             "door_to_door": ch in ("relay", "fullmile"),
             "badge": "", "probability_note": "",
+            "note": NOTES[ch], "size_tier": tariff.tier_of(item),
         }
 
         if ch == "relay" and relay_blocked_by_value:
@@ -111,8 +127,13 @@ def compare(plan: dict, item: str | None, declared_value: int | None,
             out.append(card)
             continue
         if pick is None:
+            # 불가 카드에도 근거 시각을 채운다 — 빈 칸이면 "왜 안 되는가"에 답이 없다
             card.update(feasible=False, blocked_reason=why, probability=0.0,
-                        probability_label="—", cutoff="", eta="", train_no="")
+                        probability_label="—",
+                        cutoff=to_hhmm(show.cutoff_min) if show else "—",
+                        eta=to_hhmm(show.eta_min) if show else "—",
+                        slack_min=(deadline_min - show.eta_min) if show else 0,
+                        train_no=show.train.no if show else "")
             out.append(card)
             continue
 

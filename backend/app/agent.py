@@ -31,7 +31,8 @@ class _Log:
 
 
 def run(utterance: str, history: list[str] | None = None,
-        prior: dict | None = None, now: str | None = None) -> dict:
+        prior: dict | None = None, now: str | None = None,
+        sort: str | None = None, force_carriers: dict | None = None) -> dict:
     log = _Log()
     now_min = try_min(now) if now else service_now()
     if now_min is None:
@@ -72,7 +73,8 @@ def run(utterance: str, history: list[str] | None = None,
     # AI-2 — 경로·매칭
     t0 = time.perf_counter()
     plan = route_tool.build(intake["origin"], intake["destination"],
-                            intake["deadline"], now=to_hhmm(now_min))
+                            intake["deadline"], now=to_hhmm(now_min),
+                            force_carriers=force_carriers)
     if plan.get("feasible"):
         note = f"{plan['dep_station']}→{plan['arr_station']} {plan['train_no']} · 3구간 조립"
         out = {"train_no": plan["train_no"], "eta": plan["eta"],
@@ -114,6 +116,13 @@ def run(utterance: str, history: list[str] | None = None,
     options = channels_tool.compare(plan, intake.get("item"),
                                     intake.get("declared_value"),
                                     intake["deadline"], now_min)
+    # 정렬 — 무엇을 우선할지는 이용자가 고른다. 선택 불가는 항상 뒤로
+    if sort == "cheapest":
+        options.sort(key=lambda c: (not c["feasible"], c["fare"]))
+    elif sort == "latest":
+        options.sort(key=lambda c: (not c["feasible"], -(try_min(c.get("cutoff") or "") or 0)))
+    else:  # guarantee (기본)
+        options.sort(key=lambda c: (not c["feasible"], -c["probability"]))
     log.add("4채널 비교", "도구",
             f"선택 가능 {sum(1 for c in options if c['feasible'])}채널", t0,
             {"deadline": intake["deadline"]},
