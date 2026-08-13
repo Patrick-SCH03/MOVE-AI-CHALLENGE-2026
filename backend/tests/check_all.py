@@ -252,6 +252,45 @@ def channels_consistency():
         restore()
 
 
+# ── P5: 파서 폴백 · 규정 판정 ─────────────────────────────────────────
+def parse_fallback_accuracy():
+    """규칙 폴백 — Gemini 없이 도는 정확도. 밟아 본 함정 셋을 고정한다."""
+    from app.tools.parse import _parse_deadline, _parse_item, _parse_value, rules_parse
+
+    # 금액: 콤마 표기 먼저 — 단일 정규식은 "1,250,000원"을 250,000원으로 읽는다
+    assert _parse_value("1,250,000원짜리") == 1_250_000
+    assert _parse_value("4만5천원") == 45_000
+    assert _parse_value("85만원") == 850_000
+    assert _parse_value("300만원") == 3_000_000
+    # 시각: 한글 시각 · 오전/오후 없는 1~8시는 오후
+    assert _parse_deadline("저녁 여섯시") == "18:00"
+    assert _parse_deadline("6시까지") == "18:00"
+    assert _parse_deadline("18:30") == "18:30"
+    assert _parse_deadline("오전 9시 반") == "09:30"
+    # 품목: tariff 사전 공용 · 긴 이름 먼저
+    assert _parse_item("서류봉투 하나") == "서류봉투"
+    intake = rules_parse("강남에서 서면으로 노트북 85만원짜리 오늘 저녁 6시까지")
+    assert intake["origin"] == "강남" and intake["destination"] == "서면"
+    assert intake["item"] == "노트북" and intake["declared_value"] == 850_000
+    assert intake["deadline"] == "18:00"
+
+
+def screening_rules():
+    from app.tools.screen import screen
+
+    # 금지품은 파싱된 품목이 비어도 원문에서 잡는다
+    r = screen(None, 3_000_000, raw_text="현금 300만원 보내줘")
+    assert r["verdict"] == "BLOCKED"
+    assert "제10조" in r["findings"][0]["clause"]
+    # 수탁 상한
+    assert screen("노트북", 3_500_000)["verdict"] == "BLOCKED"
+    # 고가품 — 할증 + 시민 운반 제외
+    r = screen("노트북", 2_500_000)
+    assert r["verdict"] == "CONDITIONAL" and not r["relay_allowed"] and r["surcharge"] == 10_000
+    # 통과
+    assert screen("책", None)["verdict"] == "PASS"
+
+
 CHECKS = [
     ("운반자 시드 — 팀원 4명·재현성·부산 활동 시간대", carriers_seed),
     ("엔진 — 같은 입력 = 같은 결과", engine_reproducible),
@@ -266,6 +305,8 @@ CHECKS = [
     ("경로 — 거절 사유 구분 (생활권·지명 미인식)", route_refusals),
     ("요율 — 등급·거리·가액·배상 규칙", tariff_rules),
     ("채널 — 배분 합계·경로와 무모순·고가품 차단", channels_consistency),
+    ("파서 — 규칙 폴백 정확도 (금액·시각·품목)", parse_fallback_accuracy),
+    ("규정 — 금지품 원문 스캔·상한·고가품", screening_rules),
 ]
 
 
