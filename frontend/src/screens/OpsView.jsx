@@ -52,6 +52,29 @@ export default function OpsView({ embedded = false }) {
       )}
 
       <div className="space-y-3 p-4">
+        {/* 정시율 — 확률 엔진이 지금 쓰는 값. 실측(전일 전수 대조)인지
+            공시 폴백인지가 첫눈에 보여야 "실측으로 돈다"가 말이 아니라 화면이 된다 */}
+        {board.ontime && (
+          <Card className="p-4">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <div className="text-[13px] font-semibold text-brand">확률 엔진</div>
+                <div className="text-[20px] font-bold text-g900">KTX 정시율</div>
+              </div>
+              <Chip tone={board.ontime.source === '실측' ? 'brand' : 'mute'}>
+                {board.ontime.source === '실측' ? '전일 실측' : '공시 폴백'}
+              </Chip>
+            </div>
+            <div className="tnum mt-1 text-[36px] font-bold tracking-[-0.04em] text-g900">
+              {(board.ontime.rate * 100).toFixed(1)}<span className="text-[18px] font-semibold">%</span>
+              <span className="ml-3 text-[15px] font-semibold text-g600">
+                지연 시 평균 {board.ontime.delay_mean_min}분
+              </span>
+            </div>
+            <p className="mt-1 text-[13px] text-g500">{board.ontime.detail} · 5분 기준</p>
+          </Card>
+        )}
+
         {/* 오늘 물량 */}
         <Card className="p-4">
           <div className="text-[13px] font-semibold text-brand">운영</div>

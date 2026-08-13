@@ -156,9 +156,13 @@ def ops_board():
         recent.append({"origin": o.origin, "destination": o.destination,
                        "item": o.item, "channel": o.channel, "hours_ago": hours})
 
+    from ..seed import ontime
+
     return {
         "as_of": to_hhmm(now_min),
         "today": {"total": len(todays), "stage": stage},
+        # 엔진이 지금 쓰는 정시율 — 실측(전일 대조)인지 공시 폴백인지까지
+        "ontime": ontime.provenance("KTX"),
         "stations": stations,
         "dispatch": dispatch,
         "trains": trains_out,
