@@ -62,19 +62,52 @@ PLACES: dict[str, tuple[float, float]] = {
 _SUFFIXES = ("특별시", "광역시", "특별자치시", "특별자치도", "역", "시", "구", "동", "읍", "면")
 
 
-def resolve(name: str) -> tuple[float, float] | None:
-    """지명 → 좌표. 접미사(시·구·동·역)를 떼며 재시도한다."""
+def resolve_name(name: str) -> str | None:
+    """지명 → 사전 키. 접미사(시·구·동·역)를 떼며 재시도하고, 그래도 없으면
+    입력 안에 들어 있는 사전 지명(최장 일치)을 찾는다 — 도로명·지번 주소를
+    그대로 넣는 사람이 대부분이라 "서울시 강남구 테헤란로 152" 는 강남으로 잡힌다."""
     if not name:
         return None
     q = name.strip().replace(" ", "")
     if q in PLACES:
-        return PLACES[q]
+        return q
     for suf in _SUFFIXES:
         if q.endswith(suf) and len(q) > len(suf):
             base = q[: -len(suf)]
             if base in PLACES:
-                return PLACES[base]
+                return base
+    # 부분 일치 — 긴 이름 먼저 ("광주송정" 이 "광주" 보다 먼저 걸려야 한다)
+    for key in sorted(PLACES.keys(), key=len, reverse=True):
+        if key in q:
+            return key
     return None
+
+
+def resolve(name: str) -> tuple[float, float] | None:
+    """지명 → 좌표."""
+    key = resolve_name(name)
+    return PLACES[key] if key else None
+
+
+def search(q: str, limit: int = 8) -> dict:
+    """장소 자동완성 — {items: [{name, kind}], resolved}.
+    resolved 는 자유 입력을 어느 지명 기준으로 읽었는가 ("그대로 쓰기" 안내용)."""
+    from .stations import STATIONS
+
+    q = (q or "").strip()
+    if not q:
+        return {"items": [], "resolved": None}
+    qq = q.replace(" ", "")
+    items = []
+    for s in STATIONS:
+        if qq in s.name or qq in s.tago_name:
+            items.append({"name": s.name, "kind": "역"})
+    for name in PLACES:
+        if qq in name and all(x["name"] != name for x in items):
+            items.append({"name": name, "kind": "지역"})
+        if len(items) >= limit:
+            break
+    return {"items": items[:limit], "resolved": resolve_name(q)}
 
 
 def haversine_km(a: tuple[float, float], b: tuple[float, float]) -> float:
