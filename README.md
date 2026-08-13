@@ -1,5 +1,9 @@
 <div align="center">
 
+<img src="frontend/public/brand-konect.png" width="620" alt="Ko-Nect — RAIL × PEOPLE × DELIVERY · 철도의 길과 일상을 연결하다" />
+
+<br/><br/>
+
 <img src="frontend/public/app-icon.png" width="110" alt="KTX 당일배송 앱 아이콘" />
 
 # KTX 당일배송
