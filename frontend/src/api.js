@@ -67,14 +67,6 @@ export function ro(word) {
 export const won = (n) => `${Number(n || 0).toLocaleString("ko-KR")}원`;
 export const pct = (p) => `${Math.round((p || 0) * 100)}%`;
 
-/* "17:00" → "오후 5:00" — 도착 기한 표시용(코레일톡의 시각 표기).
-   표시 전용이다: 서버로 보내는 값·"HH:MM" 문자열 비교에는 절대 쓰지 않는다. */
-export const ampm = (hhmm) => {
-  if (!hhmm || !String(hhmm).includes(":")) return hhmm ?? "";
-  const [h, m] = String(hhmm).split(":").map(Number);
-  return `${h < 12 ? "오전" : "오후"} ${h % 12 || 12}:${String(m).padStart(2, "0")}`;
-};
-
 /* 곱셈 관계를 화면에 보이는 곳에서는 정수 반올림을 쓰면 안 된다.
    99.8% × 98.5% × 100% = 98.3% 인데 정수로 끊으면 100 × 99 × 100 = 98 이 되어
    산수가 틀린 것처럼 보인다. 소수 첫째 자리까지 쓴다. */
