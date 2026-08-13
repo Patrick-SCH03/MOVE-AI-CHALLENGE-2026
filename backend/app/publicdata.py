@@ -59,8 +59,9 @@ class PublicDataClient:
         """성공 시 파싱된 JSON, 실패 시 None(사유는 self.blocked)."""
         if not self.key or self.blocked:
             return None
-        # 키는 이미 인코딩돼 있으므로 문자열로 직접 붙인다 — urlencode 금지
-        qs = urlencode({**params, "_type": "json", "numOfRows": 200})
+        # 키는 이미 인코딩돼 있으므로 문자열로 직접 붙인다 — urlencode 금지.
+        # 기본값이 앞, 호출 인자가 뒤 — 대량 페이징(열차운행정보)은 numOfRows 를 키운다
+        qs = urlencode({"_type": "json", "numOfRows": 200, **params})
         url = f"{base}/{operation}?serviceKey={self.key}&{qs}"
 
         def _fetch() -> str:
