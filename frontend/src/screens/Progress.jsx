@@ -489,21 +489,23 @@ export default function Progress({ orderId, onCancelled }) {
 
       {/* 시연 — 관제에서 들어올 지연을 손으로 넣는다 */}
       {!cancelled && o.status !== "COMPLETED" && (
-        <div className="rounded-card border border-dashed border-g300 bg-card p-4">
-          <p className="text-[13px] font-bold text-g700">시연 · 열차 지연 발생</p>
-          <p className="mt-1 text-[13px] leading-relaxed text-g500">
-            실제 운영에서는 관제 연동으로 들어옵니다. 지연이 확정되면 확률이 다시 계산돼요.
-          </p>
+        <div className="rounded-card bg-card shadow-card p-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[15px] font-bold tracking-[-0.02em] text-ink">열차 지연 (시연)</p>
+            <p className="shrink-0 text-[11px] text-g500">실제 운영에서는 관제 연동</p>
+          </div>
           <div className="mt-3 flex gap-2">
             {[0, 12, 25].map((d) => (
               <button
                 key={d}
                 onClick={() => simulateDelay(d)}
-                className={`focus-ring flex-1 rounded-field py-2.5 text-[14px] font-bold transition ${
-                  (notif?.delay_min ?? 0) === d ? "bg-brand text-white" : "bg-g100 text-g600"
+                className={`focus-ring min-h-[46px] flex-1 rounded-field text-[14px] font-bold transition ${
+                  (notif?.delay_min ?? 0) === d
+                    ? "bg-brand text-white"
+                    : "border border-g300 bg-card text-ink active:bg-g100"
                 }`}
               >
-                {d === 0 ? "정상" : `${d}분`}
+                {d === 0 ? "정상" : `${d}분 지연`}
               </button>
             ))}
           </div>
@@ -511,9 +513,9 @@ export default function Progress({ orderId, onCancelled }) {
               열차가 늦었다고 할 수는 없다. 그 사실을 말하지 않으면 버튼이 고장 난
               것처럼 보인다. 실제로 그렇게 읽혔다. */}
           {notif && !notif.delay_applies && (
-            <p className="mt-2.5 rounded-field bg-g100 px-3 py-2 text-[12px] leading-relaxed text-g600">
-              지금은 <b className="font-bold">{o.status_label}</b> 단계예요. 아래 구간 인계에서
-              ①②구간을 넘기면 탑재 상태가 되고, 그때부터 지연이 확률에 반영됩니다.
+            <p className="mt-2.5 text-[12px] leading-relaxed text-g600">
+              지금은 <b className="font-bold">{o.status_label}</b> 단계예요. ①②구간을 넘기면
+              탑재 상태가 되어 지연이 반영돼요.
             </p>
           )}
         </div>
