@@ -11,10 +11,17 @@ from . import tago  # noqa: E402  (load_dotenv 이후여야 키를 읽는다)
 from .clock import service_now, to_hhmm, today_yyyymmdd  # noqa: E402
 from .db import init_db  # noqa: E402
 from .routers import meta as meta_router  # noqa: E402
+from .routers import ops as ops_router  # noqa: E402
 from .routers import orders as orders_router  # noqa: E402
 from .routers import tools as tools_router  # noqa: E402
 
 init_db()
+
+# 기동 시 DB 가 비어 있으면 운영 이력을 생성 — 홈·운영자 통계가 집계에서 나온다
+if os.getenv("SEED_ON_START", "").lower() == "true":
+    from .seed.demo_orders import seed_if_empty
+
+    seed_if_empty()
 
 app = FastAPI(title="KTX 당일배송", docs_url="/api/docs", openapi_url="/api/openapi.json")
 
@@ -31,6 +38,7 @@ app.add_middleware(
 app.include_router(tools_router.router)
 app.include_router(meta_router.router)
 app.include_router(orders_router.router)
+app.include_router(ops_router.router)
 
 
 @app.get("/api/health")
