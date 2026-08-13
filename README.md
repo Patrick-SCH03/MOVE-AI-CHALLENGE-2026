@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="frontend/public/app-icon.png" width="110" alt="KTX 당일배송 앱 아이콘" />
+
 # KTX 당일배송
 
 **역에 가지 않고 오늘 안에 보내는 3구간 릴레이 특송 — 속도가 아니라 "도착 확률"을 파는 서비스**
