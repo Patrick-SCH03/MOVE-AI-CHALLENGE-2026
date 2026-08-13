@@ -70,8 +70,9 @@ def trains_between(dep_code: str, arr_code: str, yyyymmdd: str) -> list[Train]:
 
     out: list[Train] = []
     for it in raw:
-        # 무궁화·새마을은 특송 취급이 아니다
-        if str(it.get("traingradename", "")) != "KTX":
+        # 무궁화·새마을·ITX 는 특송 취급이 아니다. KTX-산천·청룡·이음은 취급한다 —
+        # 실제 특송(짐캐리) 공개 시간표에 산천·이음 편성이 올라와 있다
+        if not str(it.get("traingradename", "")).startswith("KTX"):
             continue
         dep_ts, arr_ts = str(it.get("depplandtime", "")), str(it.get("arrplandtime", ""))
         if len(dep_ts) < 12 or len(arr_ts) < 12:

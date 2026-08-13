@@ -122,6 +122,79 @@ def engine_two_branches_same_distribution():
         prev = p
 
 
+# ── P3: 헝가리안 · 경로 ────────────────────────────────────────────────
+def hungarian_vs_bruteforce():
+    """3×3 이하 무작위 행렬 200개 — 직접 구현이 완전탐색과 같은 최적값을 내야 한다."""
+    import itertools
+    import random
+
+    from app.tools.match import hungarian
+
+    rng = random.Random(7)
+    for trial in range(200):
+        n = rng.randint(1, 3)
+        m = rng.randint(n, 3)
+        cost = [[round(rng.uniform(0, 10), 3) for _ in range(m)] for _ in range(n)]
+        got = hungarian(cost)
+        got_cost = sum(cost[i][j] for i, j in got.items())
+        best = min(sum(cost[i][perm[i]] for i in range(n))
+                   for perm in itertools.permutations(range(m), n))
+        assert abs(got_cost - best) < 1e-9, f"시행 {trial}: {got_cost} != {best}"
+
+
+def _mock_tago(monkey_trains):
+    """키 없이 경로 로직을 검사하기 위한 합성 시간표 — TAGO 자체는 check_tago 가 검사한다."""
+    from app import tago
+
+    original = tago.trains_between
+    tago.trains_between = monkey_trains
+    return lambda: setattr(tago, "trains_between", original)
+
+
+def route_product_and_suggestions():
+    from app import tago
+    from app.tools.route import build
+
+    def fake_trains(dep, arr, day):
+        if dep == "SEO" and arr == "BSN":
+            return [tago.Train("KTX 35", "KTX", "13:58", "16:35", 59800),
+                    tago.Train("KTX 39", "KTX", "14:28", "17:12", 59800)]
+        return []
+
+    restore = _mock_tago(fake_trains)
+    try:
+        r = build("강남", "서면", "18:00", now="12:00")
+        assert r["feasible"], r.get("reason")
+        prod = 1.0
+        for leg in r["legs"]:
+            prod *= leg["probability"]
+        assert abs(prod - r["combined_probability"]) < 0.002, "곱셈 불변식 위반"
+        assert len(r["legs"]) == 3 and r["train_no"].startswith("KTX")
+        # 같은 사람이 ①③을 동시에 맡지 않는다
+        c1, c3 = r["legs"][0].get("carrier_id"), r["legs"][2].get("carrier_id")
+        assert not (c1 and c3 and c1 == c3), "같은 운반자가 두 구간을 맡았다"
+
+        r2 = build("강남", "서면", "13:00", now="12:00")
+        assert not r2["feasible"]
+        assert r2.get("suggestions"), "제안이 비었다"
+        # 제안은 실제 계획에서 — 제안 데드라인으로 다시 세우면 성립해야 한다
+        for s in r2["suggestions"]:
+            r3 = build("강남", "서면", s["deadline"], now="12:00")
+            assert r3["feasible"], f"제안 {s['deadline']} 이 실제로는 불가"
+            assert r3["eta"] <= s["deadline"], "제안 데드라인보다 늦게 도착하는 계획"
+    finally:
+        restore()
+
+
+def route_refusals():
+    from app.tools.route import build
+
+    r = build("강남", "잠실", "18:00", now="12:00")   # 같은 생활권
+    assert not r["feasible"] and "퀵" in r["reason"]
+    r = build("모르는동네123", "서면", "18:00", now="12:00")
+    assert not r["feasible"] and r.get("need_place")
+
+
 CHECKS = [
     ("운반자 시드 — 팀원 4명·재현성·부산 활동 시간대", carriers_seed),
     ("엔진 — 같은 입력 = 같은 결과", engine_reproducible),
@@ -131,6 +204,9 @@ CHECKS = [
     ("엔진 — σ 벌점: 불확실성이 확률을 못 올린다", engine_sigma_penalty),
     ("엔진 — 미배정 구간은 확정이 아니다", engine_unassigned_not_certain),
     ("엔진 — 지연 전/후 같은 분포 (늦을수록 좋아지지 않음)", engine_two_branches_same_distribution),
+    ("헝가리안 — 무작위 200회 완전탐색 대조", hungarian_vs_bruteforce),
+    ("경로 — 3구간 곱셈·전역 배정·제안이 실제 계획", route_product_and_suggestions),
+    ("경로 — 거절 사유 구분 (생활권·지명 미인식)", route_refusals),
 ]
 
 

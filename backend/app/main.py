@@ -9,6 +9,7 @@ load_dotenv()
 
 from . import tago  # noqa: E402  (load_dotenv 이후여야 키를 읽는다)
 from .clock import service_now, to_hhmm, today_yyyymmdd  # noqa: E402
+from .routers import tools as tools_router  # noqa: E402
 
 app = FastAPI(title="KTX 당일배송", docs_url="/api/docs", openapi_url="/api/openapi.json")
 
@@ -20,6 +21,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+app.include_router(tools_router.router)
 
 
 @app.get("/api/health")
