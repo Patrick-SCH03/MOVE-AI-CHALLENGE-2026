@@ -1,0 +1,65 @@
+"""FastAPI 진입점 — 라우터 등록만 한다. 로직은 tools/·seed/ 에."""
+import os
+
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+load_dotenv()
+
+from . import specialday, tago, trainrun  # noqa: E402  (load_dotenv 이후여야 키를 읽는다)
+from .clock import service_now, to_hhmm, today_yyyymmdd  # noqa: E402
+from .db import init_db  # noqa: E402
+from .routers import carrier as carrier_router  # noqa: E402
+from .routers import meta as meta_router  # noqa: E402
+from .routers import ops as ops_router  # noqa: E402
+from .routers import orders as orders_router  # noqa: E402
+from .routers import tools as tools_router  # noqa: E402
+
+init_db()
+
+# 기동 시 DB 가 비어 있으면 운영 이력을 생성 — 홈·운영자 통계가 집계에서 나온다
+if os.getenv("SEED_ON_START", "").lower() == "true":
+    from .seed.demo_orders import seed_if_empty
+
+    seed_if_empty()
+
+# 전일 운행실적 예열 — 요청 경로에서 16번 페이징을 돌리면 화면이 멈추므로
+# 기동 시 1회 스레드로 수집한다. 끝나기 전·실패 시엔 공시 상수 폴백으로 돈다
+trainrun.warm_async()
+
+app = FastAPI(title="KTX 당일배송", docs_url="/api/docs", openapi_url="/api/openapi.json")
+
+# 인증·개인정보 없는 해커톤 프로토타입이라 전 오리진 허용 —
+# Vercel(프론트)과 Railway(백엔드)가 도메인이 달라 CORS 가 필요하다
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+app.include_router(tools_router.router)
+app.include_router(meta_router.router)
+app.include_router(orders_router.router)
+app.include_router(carrier_router.router)
+app.include_router(ops_router.router)
+
+
+@app.get("/api/health")
+def health():
+    # 화면에 고정 시각 표시 띠가 없으므로 DEMO_TIME 이 켜졌는지는 여기서만 안다
+    return {
+        "ok": True,
+        "tago_api": tago.status(today_yyyymmdd()),
+        "trainrun_api": trainrun.status(),      # 정시율이 실측인지 공시 폴백인지
+        "specialday_api": specialday.status(),
+        "today_special": specialday.today_special(),
+        "gemini": bool(os.getenv("GEMINI_API_KEY", "").strip()),
+        "model": os.getenv("GEMINI_MODEL", "gemini-3.6-flash"),
+        "service_now": to_hhmm(service_now()),
+        "demo_time": os.getenv("DEMO_TIME", "") or None,
+        "demo_mode": os.getenv("DEMO_MODE", "").lower() == "true",
+        "iterations": int(os.getenv("MC_ITERATIONS", "10000")),
+    }
