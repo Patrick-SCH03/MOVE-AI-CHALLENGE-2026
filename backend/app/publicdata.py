@@ -10,8 +10,15 @@ import json
 import os
 import time
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 from pathlib import Path
 from urllib.parse import urlencode
+
+# urlopen 의 timeout 은 DNS 조회 단계를 덮지 못한다 — 이름 풀이가 막히면
+# 프로세스가 통째로 멈춘다 (Docker Desktop 기동 후 실제로 겪음). 호출을 스레드에
+# 넣고 하드 데드라인을 걸어, 무슨 일이 있어도 회로 차단이 동작하게 한다
+_POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix="publicdata")
 
 # 오류 본문 문구 → 사람이 읽을 한국어. blocked 사유로 화면(/api/health)까지 간다
 _ERROR_KO = {
@@ -55,9 +62,16 @@ class PublicDataClient:
         # 키는 이미 인코딩돼 있으므로 문자열로 직접 붙인다 — urlencode 금지
         qs = urlencode({**params, "_type": "json", "numOfRows": 200})
         url = f"{base}/{operation}?serviceKey={self.key}&{qs}"
-        try:
+
+        def _fetch() -> str:
             with urllib.request.urlopen(url, timeout=self.timeout) as r:
-                body = r.read().decode("utf-8")
+                return r.read().decode("utf-8")
+
+        try:
+            body = _POOL.submit(_fetch).result(timeout=self.timeout + 2)
+        except FutureTimeout:
+            self.blocked = "호출 지연(타임아웃) — 네트워크·DNS 상태를 확인하세요"
+            return None
         except Exception as e:
             self.blocked = f"호출 실패: {e.__class__.__name__}"
             return None
