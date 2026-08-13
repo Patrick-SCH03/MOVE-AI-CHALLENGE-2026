@@ -4,6 +4,9 @@ import { Card, Chip, Spinner } from '../components/Primitives'
 
 // 운영자 화면 (?view=ops) — 특송의 운영 단위는 건이 아니라 역이다.
 const GRADE_TONE = { '실측': 'ok', '실시간 API': 'brand', '실측 기반 · 변환 가정': 'warn', '가정': 'warn', '가상 데이터': 'mute' }
+// 대장 정렬 — 근거가 강한 순서. 서버 순서(주제별)로 두면 등급이 뒤섞여
+// "무엇이 실측이고 무엇이 가정인가"를 한눈에 셀 수 없다
+const GRADE_ORDER = ['실시간 API', '실측', '실측 기반 · 변환 가정', '가정', '가상 데이터']
 const CH_LABEL = { desk: 'KTX특송 창구', locker: '역사 무인함', relay: '시민 운반', fullmile: '기사 방문 픽업' }
 const CH_COLOR = { desk: '#1266e5', relay: '#00afdc', locker: '#7c5cff', fullmile: '#f59e0b' }
 
@@ -247,21 +250,36 @@ export default function OpsView({ embedded = false }) {
             <div className="text-[13px] font-semibold text-brand">근거</div>
             <div className="text-[20px] font-bold text-g900">이 화면의 숫자는 어디서 왔나</div>
             <div className="mt-3 flex flex-wrap gap-2">
-              {Object.entries(prov.counts).map(([g, n]) => (
-                <Chip key={g} tone={GRADE_TONE[g] || 'mute'} className="!text-[13px]">{g} {n}</Chip>
+              {GRADE_ORDER.filter((g) => prov.counts[g]).map((g) => (
+                <Chip key={g} tone={GRADE_TONE[g] || 'mute'} className="!text-[13px]">{g} {prov.counts[g]}</Chip>
               ))}
             </div>
-            <div className="mt-2 divide-y divide-g100">
-              {(showAll ? prov.items : prov.items.slice(0, 6)).map((it) => (
-                <div key={it.name} className="py-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="text-[15px] font-semibold leading-5 text-g900">{it.name}</div>
-                    <Chip tone={GRADE_TONE[it.grade] || 'mute'} className="shrink-0">{it.grade}</Chip>
+            {/* 등급별 묶음 — 접힌 상태에서는 근거가 강한 앞 그룹부터 6건 */}
+            {(() => {
+              let left = showAll ? Infinity : 6
+              return GRADE_ORDER.map((g) => {
+                const items = prov.items.filter((it) => it.grade === g).slice(0, Math.max(0, left))
+                if (items.length === 0) return null
+                left -= items.length
+                return (
+                  <div key={g} className="mt-3">
+                    <div className="flex items-center gap-2">
+                      <Chip tone={GRADE_TONE[g] || 'mute'} className="shrink-0">{g}</Chip>
+                      <span className="tnum text-[12px] text-g500">{prov.counts[g]}건</span>
+                      <div className="h-px flex-1 bg-g100" />
+                    </div>
+                    <div className="divide-y divide-g100">
+                      {items.map((it) => (
+                        <div key={it.name} className="py-2.5">
+                          <div className="text-[15px] font-semibold leading-5 text-g900">{it.name}</div>
+                          <div className="mt-0.5 text-[13px] leading-5 text-g500">{it.source}</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="mt-0.5 text-[13px] text-g500">{it.source}</div>
-                </div>
-              ))}
-            </div>
+                )
+              })
+            })()}
             <button
               onClick={() => setShowAll(!showAll)}
               className="mt-2 w-full rounded-btn bg-g100 py-3 text-[15px] font-semibold text-g800"
@@ -271,10 +289,8 @@ export default function OpsView({ embedded = false }) {
           </Card>
         )}
 
-        <p className="pt-2 text-center text-[13px] leading-5 text-g500">
-          MOVE-AI CHALLENGE 2026 · 한국철도공사 제안 프로토타입<br />
-          공식 서비스가 아니며, 운임과 일부 수치는 가정치입니다.
-        </p>
+        {/* 고지 푸터는 App 공통 푸터가 그린다 (이 화면은 항상 App 안에서 뜬다) —
+            여기서도 그리면 같은 문구가 두 번 연달아 나온다 (실제로 그랬다) */}
       </div>
     </div>
   )
