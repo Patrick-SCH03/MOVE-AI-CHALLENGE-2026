@@ -16,7 +16,14 @@ from sqlmodel import Session, select
 from ..clock import now_kst, service_now, to_hhmm, to_min
 from ..db import engine
 from ..models import Leg, Order
+from ..seed import tariff
 from ..tools import route as route_tool
+from ..tools.channels import SURCHARGE
+
+
+def _fare(plan: dict, item: str, value: int | None, channel: str) -> int:
+    base, _ = tariff.base_fare(item, plan["dep_code"], plan["arr_code"], value)
+    return base + SURCHARGE[channel]
 
 # 시드 경로 풀 — 지명 사전에 있고 생활권 밖(40km+)인 조합만
 _ROUTES = [
@@ -59,7 +66,8 @@ def _make_order(s: Session, rng: random.Random, day_offset: int, seq: int,
         id=f"TP{day.strftime('%y%m%d')}{seq:04d}",
         origin=origin, destination=dest, item=item, declared_value=value,
         deadline=plan["deadline"], eta=eta, train_no=plan["train_no"],
-        fare=10_000 + rng.choice([1000, 1000, 3000, 7000]),
+        # 운임은 요율 단일 출처에서 — 눈대중 상수를 쓰면 내역·합계가 요율표와 어긋난다
+        fare=_fare(plan, item, value, channel),
         probability=p, channel=channel, status=status,
         plan_json=json.dumps(plan, ensure_ascii=False),
         notice_consent=True, recipient_consent=True, relay_consent=channel == "relay",
