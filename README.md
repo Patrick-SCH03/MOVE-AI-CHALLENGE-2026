@@ -112,16 +112,11 @@ flowchart LR
     D2 -->|"③ 시민 운반<br/>예산 = 데드라인 − 도착"| Z["집앞"]
 ```
 
-### 배포 구조
+### 전체 아키텍처
 
-```mermaid
-flowchart LR
-    B["브라우저"] -->|정적 페이지| V["Vercel<br/>React SPA"]
-    B -->|REST · 3초 폴링| R["Railway<br/>FastAPI + Docker"]
-    R --> T["TAGO 열차정보<br/>(공공데이터포털)"]
-    R --> G["Gemini API"]
-    R --> DB[("SQLite<br/>기동 시 7일 이력 시드")]
-```
+<div align="center">
+<img src="docs/architecture.png" width="680" alt="서비스 아키텍처 — Vercel 세 화면이 Railway FastAPI 를 3초 폴링으로 호출하고, AI 파이프라인·주문 흐름·SQLite 가 TAGO·열차운행정보·특일 정보·Gemini 네 실데이터 연동 위에서 돈다" />
+</div>
 
 ---
 
